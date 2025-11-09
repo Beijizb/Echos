@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
+import 'dart:io';
+import 'package:flutter_acrylic/flutter_acrylic.dart';
 import '../../services/player_service.dart';
 import '../../services/playlist_queue_service.dart';
 import '../../models/track.dart';
@@ -528,6 +530,8 @@ class _FluentDailyRecommendPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fluentTheme = fluent.FluentTheme.of(context);
+    final useWindowEffect =
+        Platform.isWindows && ThemeManager().windowEffect != WindowEffect.disabled;
     return fluent.ScaffoldPage(
       header: showHeader
           ? fluent.PageHeader(
@@ -557,7 +561,9 @@ class _FluentDailyRecommendPage extends StatelessWidget {
             )
           : null,
       content: Container(
-        color: fluentTheme.scaffoldBackgroundColor,
+        color: useWindowEffect
+            ? Colors.transparent
+            : fluentTheme.micaBackgroundColor,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

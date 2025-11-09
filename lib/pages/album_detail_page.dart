@@ -1,6 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:flutter_acrylic/flutter_acrylic.dart';
+import '../utils/theme_manager.dart';
 import '../services/netease_album_service.dart';
 import '../models/track.dart';
 import '../services/player_service.dart';
@@ -45,6 +48,28 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
     final cs = Theme.of(context).colorScheme;
     if (widget.embedded) {
       return _buildBody();
+    }
+    final isFluent = fluent.FluentTheme.maybeOf(context) != null;
+    if (isFluent) {
+      final useWindowEffect =
+          Platform.isWindows && ThemeManager().windowEffect != WindowEffect.disabled;
+      final body = _buildBody();
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: const Text('专辑详情'),
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+        ),
+        body: useWindowEffect
+            ? body
+            : Container(
+                color: fluent.FluentTheme.of(context).micaBackgroundColor,
+                child: body,
+              ),
+      );
     }
     return Scaffold(
       backgroundColor: cs.surface,

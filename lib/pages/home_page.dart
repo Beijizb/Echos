@@ -27,6 +27,7 @@ import '../models/playlist.dart';
 import 'dart:math';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter_acrylic/flutter_acrylic.dart';
 import '../services/url_service.dart';
 import '../services/netease_login_service.dart';
 import '../services/auto_update_service.dart';
@@ -67,6 +68,7 @@ class _HomePageState extends State<HomePage>
   final ThemeManager _themeManager = ThemeManager();
   String? _initialSearchKeyword;
   int _lastHandledSearchRequestId = 0;
+  int _forYouReloadToken = 0;
 
   @override
   bool get wantKeepAlive => true; // 保持页面状态
@@ -624,11 +626,25 @@ class _HomePageState extends State<HomePage>
     }
   }
 
-  void _handleRefreshPressed(BuildContext context) {
+  Future<void> _handleRefreshPressed(BuildContext context) async {
+    await _clearForYouCache();
+    if (mounted) {
+      setState(() {
+        _forYouReloadToken++;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('正在刷新为你推荐...')),
+      );
+    }
     MusicService().refreshToplists();
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('正在刷新榜单...')));
+  }
+
+  Future<void> _clearForYouCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = AuthService().currentUser?.id?.toString() ?? 'guest';
+    final base = 'home_for_you_$userId';
+    await prefs.remove('${base}_data');
+    await prefs.remove('${base}_expire');
   }
 
   void _onExternalSearchRequested() {
@@ -667,58 +683,69 @@ class _HomePageState extends State<HomePage>
   ) {
     final breadcrumbs = _buildBreadcrumbItems(showTabs);
 
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: FluentHomeBreadcrumbs(
-                    items: breadcrumbs,
-                    padding: EdgeInsets.zero,
-                  ),
+    final fluentTheme = fluent.FluentTheme.of(context);
+    final bool useWindowEffect =
+        Platform.isWindows && ThemeManager().windowEffect != WindowEffect.disabled;
+
+    final Widget content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: FluentHomeBreadcrumbs(
+                  items: breadcrumbs,
+                  padding: EdgeInsets.zero,
                 ),
-                const SizedBox(width: 12),
-                _buildFluentActionButtons(context),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              _buildFluentActionButtons(context),
+            ],
           ),
-          const Divider(height: 1),
-          Expanded(
-            child: Stack(
-              children: [
+        ),
+        const SizedBox(height: 0),
+        Expanded(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: _buildSlidingSwitcher(
+                  _buildFluentContentArea(context, colorScheme, showTabs),
+                ),
+              ),
+              if (_showSearch)
                 Positioned.fill(
-                  child: _buildSlidingSwitcher(
-                    _buildFluentContentArea(context, colorScheme, showTabs),
+                  child: SearchWidget(
+                    key: ValueKey(
+                      'fluent_search_${_initialSearchKeyword ?? ''}',
+                    ),
+                    onClose: () {
+                      if (!mounted) return;
+                      setState(() {
+                        _showSearch = false;
+                        _initialSearchKeyword = null;
+                      });
+                      _syncGlobalBackHandler();
+                    },
+                    initialKeyword: _initialSearchKeyword,
                   ),
                 ),
-                if (_showSearch)
-                  Positioned.fill(
-                    child: SearchWidget(
-                      key: ValueKey(
-                        'fluent_search_${_initialSearchKeyword ?? ''}',
-                      ),
-                      onClose: () {
-                        if (!mounted) return;
-                        setState(() {
-                          _showSearch = false;
-                          _initialSearchKeyword = null;
-                        });
-                        _syncGlobalBackHandler();
-                      },
-                      initialKeyword: _initialSearchKeyword,
-                    ),
-                  ),
-              ],
-            ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
+    );
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: useWindowEffect
+          ? content
+          : Container(
+              color: fluentTheme.micaBackgroundColor,
+              child: content,
+            ),
     );
   }
 
@@ -904,6 +931,7 @@ class _HomePageState extends State<HomePage>
           ],
           if (showTabs && _homeTabIndex == 0) ...[
             HomeForYouTab(
+              key: ValueKey('for_you_$_forYouReloadToken'),
               onOpenPlaylistDetail: (id) {
                 setState(() {
                   _homeTabIndex = 0;
@@ -992,10 +1020,16 @@ class _HomePageState extends State<HomePage>
     ColorScheme colorScheme,
     bool showTabs,
   ) {
+    final fluentTheme = fluent.FluentTheme.of(context);
+    final bool useWindowEffect =
+        Platform.isWindows && ThemeManager().windowEffect != WindowEffect.disabled;
+    final Color embeddedBgColor = useWindowEffect
+        ? Colors.transparent
+        : fluentTheme.micaBackgroundColor;
     if (_showDailyDetail) {
       return Container(
         key: const ValueKey('fluent_daily_detail'),
-        color: colorScheme.surface,
+        color: embeddedBgColor,
         child: PrimaryScrollController.none(
           child: DailyRecommendDetailPage(
             tracks: _dailyTracks,
@@ -1010,7 +1044,7 @@ class _HomePageState extends State<HomePage>
     if (_showDiscoverDetail && _discoverPlaylistId != null) {
       return Container(
         key: ValueKey('fluent_playlist_${_discoverPlaylistId!}'),
-        color: colorScheme.surface,
+        color: embeddedBgColor,
         child: PrimaryScrollController.none(
           child: DiscoverPlaylistDetailContent(
             playlistId: _discoverPlaylistId!,
@@ -1022,7 +1056,7 @@ class _HomePageState extends State<HomePage>
     if (_showSearch) {
       return Container(
         key: ValueKey('fluent_search_${_initialSearchKeyword ?? ''}'),
-        color: colorScheme.surface,
+        color: embeddedBgColor,
         child: SearchWidget(
           key: ValueKey('fluent_search_body_${_initialSearchKeyword ?? ''}'),
           onClose: () {

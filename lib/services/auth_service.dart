@@ -14,6 +14,8 @@ class User {
   final bool isVerified;
   final String? lastLogin;
   final String? avatarUrl;
+  final bool isSponsor;
+  final String? sponsorSince;
 
   User({
     required this.id,
@@ -22,16 +24,20 @@ class User {
     required this.isVerified,
     this.lastLogin,
     this.avatarUrl,
+    this.isSponsor = false,
+    this.sponsorSince,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
-      id: json['id'],
-      email: json['email'],
-      username: json['username'],
-      isVerified: json['isVerified'] ?? false,
-      lastLogin: json['lastLogin'],
-      avatarUrl: json['avatarUrl'],
+      id: json['id'] as int,
+      email: json['email'] as String,
+      username: json['username'] as String,
+      isVerified: json['isVerified'] as bool? ?? false,
+      lastLogin: json['lastLogin'] as String?,
+      avatarUrl: json['avatarUrl'] as String?,
+      isSponsor: json['isSponsor'] as bool? ?? false,
+      sponsorSince: json['sponsorSince'] as String?,
     );
   }
 
@@ -43,6 +49,8 @@ class User {
       'isVerified': isVerified,
       'lastLogin': lastLogin,
       'avatarUrl': avatarUrl,
+      'isSponsor': isSponsor,
+      'sponsorSince': sponsorSince,
     };
   }
 }

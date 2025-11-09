@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:fluent_ui/fluent_ui.dart' as fluent_ui;
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 
@@ -49,31 +50,40 @@ class _FluentMainLayoutState extends State<FluentMainLayout> with WindowListener
   bool _isSearchVisible = false;
   String? _searchInitialKeyword;
 
+  Widget _svgIcon(String assetPath) {
+    return SvgPicture.asset(
+      assetPath,
+      width: 16,
+      height: 16,
+      fit: BoxFit.contain,
+    );
+  }
+
   /// 主导航项列表
   List<fluent_ui.NavigationPaneItem> get _paneItems {
     final items = <fluent_ui.NavigationPaneItem>[
       fluent_ui.PaneItem(
-        icon: const Icon(fluent_ui.FluentIcons.home),
+        icon: _svgIcon('assets/ui/FluentColorHome16.svg'),
         title: const Text('首页'),
         body: const HomePage(),
       ),
       fluent_ui.PaneItem(
-        icon: const Icon(fluent_ui.FluentIcons.search),
+        icon: _svgIcon('assets/ui/FluentColorSearchSparkle16.svg'),
         title: const Text('发现'),
         body: const DiscoverPage(),
       ),
       fluent_ui.PaneItem(
-        icon: const Icon(fluent_ui.FluentIcons.history),
+        icon: _svgIcon('assets/ui/FluentColorHistory16.svg'),
         title: const Text('历史'),
         body: const HistoryPage(),
       ),
       fluent_ui.PaneItem(
-        icon: const Icon(fluent_ui.FluentIcons.folder_open),
+        icon: _svgIcon('assets/ui/FluentColorDocumentFolder16.svg'),
         title: const Text('本地'),
         body: const LocalPage(),
       ),
       fluent_ui.PaneItem(
-        icon: const Icon(fluent_ui.FluentIcons.contact),
+        icon: _svgIcon('assets/ui/FluentColorPerson16.svg'),
         title: const Text('我的'),
         body: const MyPage(),
       ),
@@ -83,7 +93,7 @@ class _FluentMainLayoutState extends State<FluentMainLayout> with WindowListener
     if (DeveloperModeService().isDeveloperMode) {
       items.add(
         fluent_ui.PaneItem(
-          icon: const Icon(fluent_ui.FluentIcons.code),
+          icon: _svgIcon('assets/ui/FluentColorCode16.svg'),
           title: const Text('Dev'),
           body: const DeveloperPage(),
         ),
@@ -97,7 +107,7 @@ class _FluentMainLayoutState extends State<FluentMainLayout> with WindowListener
   List<fluent_ui.NavigationPaneItem> get _footerItems {
     return [
       fluent_ui.PaneItem(
-        icon: const Icon(fluent_ui.FluentIcons.settings),
+        icon: _svgIcon('assets/ui/FluentColorSettings16.svg'),
         title: const Text('设置'),
         body: const _DeferredSettingsPage(),
       ),

@@ -50,7 +50,9 @@ class _NetworkSettingsState extends State<NetworkSettings> {
   void _startAutoRefresh() {
     _autoRefreshTimer?.cancel();
     _autoRefreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-      _testConnection();
+      if (mounted) {
+        _testConnection();
+      }
     });
   }
 
@@ -450,10 +452,11 @@ class _NetworkSettingsState extends State<NetworkSettings> {
   }
 
   Future<void> _testConnection() async {
-    if (_isTesting) return;
+    if (_isTesting || !mounted) return;
 
     final baseUrl = UrlService().baseUrl;
     if (baseUrl.isEmpty) {
+      if (!mounted) return;
       setState(() {
         _latencyMs = null;
         _errorMessage = '未设置后端地址';
@@ -461,6 +464,7 @@ class _NetworkSettingsState extends State<NetworkSettings> {
       return;
     }
 
+    if (!mounted) return;
     setState(() {
       _isTesting = true;
       _errorMessage = null;

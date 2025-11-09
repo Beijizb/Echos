@@ -99,6 +99,7 @@ dependencies:
 
   # Fluent UI controls and theming for Windows
   fluent_ui: ^4.11.0
+  flutter_svg: ^2.0.10+1
 
 dev_dependencies:
   flutter_test:
@@ -129,6 +130,7 @@ flutter:
   assets:
     - assets/icons/tray_icon.ico
     - assets/icons/tray_icon.png
+    - assets/ui/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

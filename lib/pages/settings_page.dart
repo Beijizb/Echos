@@ -18,6 +18,8 @@ import 'settings_page/playback_settings.dart';
 import 'settings_page/network_settings.dart';
 import 'settings_page/storage_settings.dart';
 import 'settings_page/about_settings.dart';
+import 'settings_page/donate_settings.dart';
+import 'settings_page/sponsor_wall.dart';
 
 /// 设置页面
 class SettingsPage extends StatefulWidget {
@@ -203,8 +205,16 @@ class _SettingsPageState extends State<SettingsPage> {
                 const StorageSettings(),
                 const SizedBox(height: 24),
                 
+                // 赞助与支持
+                const DonateSettings(),
+                const SizedBox(height: 24),
+                
                 // 关于
                 const AboutSettings(),
+                const SizedBox(height: 24),
+                
+                // 赞助墙
+                const SponsorWall(),
                 const SizedBox(height: 40),
               ]),
             ),
@@ -250,8 +260,16 @@ class _SettingsPageState extends State<SettingsPage> {
         const StorageSettings(),
         const SizedBox(height: 16),
         
+        // 赞助与支持
+        const DonateSettings(),
+        const SizedBox(height: 16),
+        
         // 关于
         const AboutSettings(),
+        const SizedBox(height: 16),
+        
+        // 赞助墙
+        const SponsorWall(),
         const SizedBox(height: 40),
       ],
     );

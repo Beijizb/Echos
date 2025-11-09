@@ -11,6 +11,7 @@ import 'discover_playlist_detail_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../utils/theme_manager.dart';
+import '../services/weather_service.dart';
 
 /// 首页 - 为你推荐 Tab 内容
 class HomeForYouTab extends StatefulWidget {
@@ -52,21 +53,16 @@ class _HomeForYouTabState extends State<HomeForYouTab> {
       }
     }
 
-    // 2) 拉取网络数据
+    // 2) 拉取网络数据（聚合接口，一次性并发获取）
     final svc = NeteaseRecommendService();
-    final dailySongs = await svc.fetchDailySongs();
-    final fm = await svc.fetchPersonalFm();
-    final dailyPlaylists = await svc.fetchDailyPlaylists();
-    final personalized = await svc.fetchPersonalizedPlaylists(limit: 12);
-    final radar = await svc.fetchRadarPlaylists();
-    final newsongs = await svc.fetchPersonalizedNewsongs(limit: 10);
+    final combined = await svc.fetchForYouCombined(personalizedLimit: 12, newsongLimit: 10);
     final result = _ForYouData(
-      dailySongs: dailySongs,
-      fm: fm,
-      dailyPlaylists: dailyPlaylists,
-      personalizedPlaylists: personalized,
-      radarPlaylists: radar,
-      personalizedNewsongs: newsongs,
+      dailySongs: combined['dailySongs'] ?? const [],
+      fm: combined['fm'] ?? const [],
+      dailyPlaylists: combined['dailyPlaylists'] ?? const [],
+      personalizedPlaylists: combined['personalizedPlaylists'] ?? const [],
+      radarPlaylists: combined['radarPlaylists'] ?? const [],
+      personalizedNewsongs: combined['personalizedNewsongs'] ?? const [],
     );
 
     // 3) 写入当日缓存（有效期至当日 23:59:59）
@@ -255,6 +251,32 @@ class _GreetingHeader extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+          const SizedBox(width: 8),
+          FutureBuilder<String?>(
+            future: WeatherService().fetchWeatherText(),
+            builder: (context, snap) {
+              final txt = snap.data?.toString();
+              if (txt == null || txt.isEmpty) return const SizedBox.shrink();
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.wb_sunny_rounded, size: 16, color: cs.onSurfaceVariant),
+                  const SizedBox(width: 6),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 220),
+                    child: Text(
+                      txt,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),

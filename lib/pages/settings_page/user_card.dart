@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:fluent_ui/fluent_ui.dart' as fluent_ui;
 import '../../services/auth_service.dart';
 import '../../services/location_service.dart';
+import '../../services/donate_service.dart';
 import '../../utils/theme_manager.dart';
 import '../auth/auth_page.dart';
 
@@ -16,11 +17,15 @@ class UserCard extends StatefulWidget {
 }
 
 class _UserCardState extends State<UserCard> {
+  bool _isSponsor = false;
+  bool _loadingSponsorStatus = false;
+
   @override
   void initState() {
     super.initState();
     AuthService().addListener(_onAuthChanged);
     LocationService().addListener(_onLocationChanged);
+    _checkSponsorStatus();
   }
 
   /// 在 Fluent UI 中以 ContentDialog 方式显示登录界面
@@ -683,6 +688,7 @@ class _UserCardState extends State<UserCard> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       setState(() {});
+      _checkSponsorStatus(); // 登录状态变化时重新查询赞助状态
     });
   }
 
@@ -693,6 +699,44 @@ class _UserCardState extends State<UserCard> {
       setState(() {});
     });
   }
+
+  /// 查询用户赞助状态
+  Future<void> _checkSponsorStatus() async {
+    final user = AuthService().currentUser;
+    if (user == null) {
+      setState(() {
+        _isSponsor = false;
+        _loadingSponsorStatus = false;
+      });
+      return;
+    }
+
+    setState(() => _loadingSponsorStatus = true);
+
+    try {
+      final result = await DonateService.getSponsorStatus(userId: user.id);
+      if (result['code'] == 200 && result['data'] != null) {
+        final data = result['data'] as Map<String, dynamic>;
+        setState(() {
+          _isSponsor = data['isSponsor'] == true;
+          _loadingSponsorStatus = false;
+        });
+        print('[UserCard] 赞助状态: $_isSponsor');
+      } else {
+        setState(() {
+          _isSponsor = false;
+          _loadingSponsorStatus = false;
+        });
+      }
+    } catch (e) {
+      print('[UserCard] 查询赞助状态失败: $e');
+      setState(() {
+        _isSponsor = false;
+        _loadingSponsorStatus = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLoggedIn = AuthService().isLoggedIn;
@@ -799,12 +843,47 @@ class _UserCardState extends State<UserCard> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // 用户名
-                          Text(
-                            user.username,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                          // 用户名 + 赞助角标
+                          Row(
+                            children: [
+                              Text(
+                                user.username,
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              if (_isSponsor) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.workspace_premium,
+                                        size: 14,
+                                        color: Colors.white,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '金牌赞助',
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                           const SizedBox(height: 4),
                           // 邮箱
@@ -1075,10 +1154,45 @@ class _UserCardState extends State<UserCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 用户名
-                      Text(
-                        user.username,
-                        style: fluent_ui.FluentTheme.of(context).typography.subtitle,
+                      // 用户名 + 赞助角标
+                      Row(
+                        children: [
+                          Text(
+                            user.username,
+                            style: fluent_ui.FluentTheme.of(context).typography.subtitle,
+                          ),
+                          if (_isSponsor) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    fluent_ui.FluentIcons.trophy2,
+                                    size: 12,
+                                    color: Colors.white,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '金牌赞助',
+                                    style: fluent_ui.FluentTheme.of(context).typography.caption?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 4),
                       // 邮箱

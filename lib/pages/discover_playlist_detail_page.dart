@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
+import 'dart:io';
+import 'package:flutter_acrylic/flutter_acrylic.dart';
 import '../services/netease_discover_service.dart';
 import '../models/netease_discover.dart';
 import '../models/track.dart';
@@ -280,7 +282,10 @@ class _DiscoverPlaylistDetailContentState
         )
         .toList();
 
-    return fluent.ScrollConfiguration(
+    final useWindowEffect =
+        Platform.isWindows && ThemeManager().windowEffect != WindowEffect.disabled;
+
+    final listView = fluent.ScrollConfiguration(
       behavior: const fluent.FluentScrollBehavior(),
       child: ListView(
         controller: _scrollController,
@@ -323,6 +328,13 @@ class _DiscoverPlaylistDetailContentState
               ),
         ],
       ),
+    );
+
+    return Container(
+      color: useWindowEffect
+          ? Colors.transparent
+          : fluent.FluentTheme.of(context).micaBackgroundColor,
+      child: listView,
     );
   }
 

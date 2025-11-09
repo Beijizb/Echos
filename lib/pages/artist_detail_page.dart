@@ -1,5 +1,8 @@
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:flutter_acrylic/flutter_acrylic.dart';
+import '../utils/theme_manager.dart';
 import '../services/netease_artist_service.dart';
 import '../services/player_service.dart';
 import '../models/track.dart';
@@ -42,6 +45,30 @@ class _ArtistDetailPageState extends State<ArtistDetailPage> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isFluent = fluent.FluentTheme.maybeOf(context) != null;
+
+    if (isFluent) {
+      final useWindowEffect =
+          Platform.isWindows && ThemeManager().windowEffect != WindowEffect.disabled;
+      final body = ArtistDetailContent(artistId: widget.artistId);
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: const Text('歌手详情'),
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+        ),
+        body: useWindowEffect
+            ? body
+            : Container(
+                color: fluent.FluentTheme.of(context).micaBackgroundColor,
+                child: body,
+              ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: cs.surface,
       appBar: AppBar(
