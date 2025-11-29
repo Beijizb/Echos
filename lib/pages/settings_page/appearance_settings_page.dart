@@ -738,7 +738,7 @@ class _AppearanceSettingsContentState extends State<AppearanceSettingsContent> {
                   children: [
                     const Text('桌面模式'),
                     Text(
-                      '侧边导航栏，横屏宽屏布局 (1200x800)',
+                      '侧边导航栏，横屏宽屏布局 (1320x880)',
                       style: fluent_ui.FluentTheme.of(context).typography.caption,
                     ),
                   ],

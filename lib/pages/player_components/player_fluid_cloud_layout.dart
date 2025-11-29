@@ -1,11 +1,9 @@
-import 'dart:io';
 import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../services/player_service.dart';
-import '../../models/track.dart';
 import '../../models/lyric_line.dart';
-import 'player_background.dart';
+import 'player_fluid_cloud_background.dart';
 import 'player_window_controls.dart';
 import 'player_fluid_cloud_lyrics_panel.dart';
 
@@ -37,8 +35,8 @@ class PlayerFluidCloudLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // 1. 全局背景
-        const PlayerBackground(),
+        // 1. 全局背景（流体云专用背景：自适应模式下始终显示专辑封面 100% 填充）
+        const PlayerFluidCloudBackground(),
         
         // 2. 玻璃拟态遮罩 (整个容器)
         Positioned.fill(
@@ -60,25 +58,29 @@ class PlayerFluidCloudLayout extends StatelessWidget {
                 onBackPressed: onBackPressed,
               ),
               
-              // 主体布局 (左右分栏)
+              // 主体布局 (左右分栏) - 参考 Vue 项目 42%/58% 比例
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 20),
+                  padding: const EdgeInsets.only(left: 60, right: 40, top: 20, bottom: 20),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // 左侧：控制面板 (固定宽度或比例)
-                      SizedBox(
-                        width: 400,
-                        child: _buildLeftPanel(context),
+                      // 左侧：控制面板 (42% 宽度)
+                      Expanded(
+                        flex: 42,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 60),
+                          child: _buildLeftPanel(context),
+                        ),
                       ),
                       
-                      // 间距
-                      const SizedBox(width: 60),
-                      
-                      // 右侧：歌词面板 (自适应)
+                      // 右侧：歌词面板 (58% 宽度)
                       Expanded(
-                        child: _buildRightPanel(),
+                        flex: 58,
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 40),
+                          child: _buildRightPanel(),
+                        ),
                       ),
                     ],
                   ),

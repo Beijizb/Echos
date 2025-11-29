@@ -1,10 +1,10 @@
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
-import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/system_theme_color_service.dart';
+import '../services/layout_preference_service.dart';
 
 /// 桌面端主题框架
 enum ThemeFramework {
@@ -477,6 +477,17 @@ class ThemeManager extends ChangeNotifier {
     if (_themeFramework != framework) {
       _themeFramework = framework;
       _saveThemeFramework();
+      
+      // 切换到 Fluent UI 时，自动重置为桌面布局模式
+      // 因为 Fluent UI 主要用于桌面体验，移动布局在 Fluent UI 下不适用
+      if (framework == ThemeFramework.fluent && Platform.isWindows) {
+        final layoutService = LayoutPreferenceService();
+        if (layoutService.isMobileLayout) {
+          layoutService.setLayoutMode(LayoutMode.desktop);
+          print('🖥️ [ThemeManager] 切换到 Fluent UI，自动重置为桌面布局模式');
+        }
+      }
+      
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _applyWindowEffectInternal();
         notifyListeners();

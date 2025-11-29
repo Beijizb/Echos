@@ -82,7 +82,7 @@ class LayoutPreferenceService extends ChangeNotifier {
     try {
       if (mode == LayoutMode.desktop) {
         // 桌面模式：宽屏布局
-        final desktopSize = const Size(1200, 800);
+        final desktopSize = const Size(1320, 880);
         final minSize = const Size(800, 600);
         
         print('🖥️ [LayoutPreference] 调整窗口为桌面尺寸: ${desktopSize.width}x${desktopSize.height}');

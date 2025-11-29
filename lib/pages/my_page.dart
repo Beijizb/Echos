@@ -28,6 +28,11 @@ class _MyPageState extends State<MyPage> {
   Playlist? _selectedPlaylist; // 当前选中的歌单
   bool _isEditMode = false; // 是否处于编辑模式
   final Set<String> _selectedTrackIds = {}; // 选中的歌曲ID集合
+  
+  // 搜索相关状态
+  bool _isSearchMode = false; // 是否处于搜索模式
+  String _searchQuery = ''; // 搜索关键词
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -43,6 +48,7 @@ class _MyPageState extends State<MyPage> {
   @override
   void dispose() {
     _playlistService.removeListener(_onPlaylistsChanged);
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -241,10 +247,13 @@ class _MyPageState extends State<MyPage> {
   }
 
   Widget _buildFluentPlaylistDetailPage(Playlist playlist) {
-    final tracks = _playlistService.currentPlaylistId == playlist.id
+    final allTracks = _playlistService.currentPlaylistId == playlist.id
         ? _playlistService.currentTracks
         : <PlaylistTrack>[];
     final isLoading = _playlistService.isLoadingTracks;
+    
+    // 根据搜索关键词过滤歌曲
+    final filteredTracks = _filterTracks(allTracks);
 
     return fluent.ScaffoldPage(
       padding: EdgeInsets.zero,
@@ -284,9 +293,9 @@ class _MyPageState extends State<MyPage> {
                 const SizedBox(width: 8),
                 if (_isEditMode) ...[
                   fluent.Button(
-                    onPressed: tracks.isNotEmpty ? _toggleSelectAll : null,
+                    onPressed: allTracks.isNotEmpty ? _toggleSelectAll : null,
                     child: Text(
-                      _selectedTrackIds.length == tracks.length ? '取消全选' : '全选',
+                      _selectedTrackIds.length == allTracks.length ? '取消全选' : '全选',
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -300,7 +309,15 @@ class _MyPageState extends State<MyPage> {
                     child: const Text('取消'),
                   ),
                 ] else ...[
-                  if (tracks.isNotEmpty) ...[
+                  // 搜索按钮
+                  if (allTracks.isNotEmpty) ...[
+                    fluent.IconButton(
+                      icon: Icon(_isSearchMode ? fluent.FluentIcons.search_and_apps : fluent.FluentIcons.search),
+                      onPressed: _toggleSearchMode,
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  if (allTracks.isNotEmpty) ...[
                     fluent.IconButton(
                       icon: const Icon(fluent.FluentIcons.edit),
                       onPressed: _toggleEditMode,
@@ -315,7 +332,7 @@ class _MyPageState extends State<MyPage> {
                           context,
                           builder: (context, close) => fluent.InfoBar(
                             title: const Text('同步'),
-                            content: const Text('请先在“导入管理”中绑定来源后再同步'),
+                            content: const Text('请先在"导入管理"中绑定来源后再同步'),
                             severity: fluent.InfoBarSeverity.warning,
                             action: fluent.IconButton(
                               icon: const Icon(fluent.FluentIcons.clear),
@@ -359,29 +376,61 @@ class _MyPageState extends State<MyPage> {
               ],
             ),
           ),
-          // Removed Divider to avoid white line between header and content under acrylic/mica
+          
+          // 搜索框（搜索模式时显示）
+          if (_isSearchMode)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: fluent.TextBox(
+                controller: _searchController,
+                placeholder: '搜索歌曲、歌手、专辑...',
+                prefix: const Padding(
+                  padding: EdgeInsets.only(left: 8),
+                  child: Icon(fluent.FluentIcons.search, size: 16),
+                ),
+                suffix: _searchQuery.isNotEmpty
+                    ? fluent.IconButton(
+                        icon: const Icon(fluent.FluentIcons.clear, size: 12),
+                        onPressed: () {
+                          _searchController.clear();
+                          _onSearchChanged('');
+                        },
+                      )
+                    : null,
+                onChanged: _onSearchChanged,
+                autofocus: true,
+              ),
+            ),
 
           // 内容
-          if (isLoading && tracks.isEmpty)
+          if (isLoading && allTracks.isEmpty)
             const Expanded(
               child: Center(child: fluent.ProgressRing()),
             )
-          else if (tracks.isEmpty)
+          else if (allTracks.isEmpty)
             Expanded(child: _buildFluentDetailEmptyState())
+          // 搜索无结果
+          else if (filteredTracks.isEmpty && _searchQuery.isNotEmpty)
+            Expanded(child: _buildFluentSearchEmptyState())
           else ...[
             Padding(
               padding: const EdgeInsets.all(16.0),
-              child: _buildFluentDetailStatisticsCard(tracks.length),
+              child: _buildFluentDetailStatisticsCard(
+                filteredTracks.length,
+                totalCount: allTracks.length,
+              ),
             ),
             Expanded(
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 itemBuilder: (context, index) {
-                  final track = tracks[index];
-                  return _buildFluentTrackItem(track, index);
+                  final track = filteredTracks[index];
+                  // 获取原始索引用于播放
+                  final originalIndex = allTracks.indexOf(track);
+                  return _buildFluentTrackItem(track, originalIndex);
                 },
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemCount: tracks.length,
+                itemCount: filteredTracks.length,
               ),
             ),
           ],
@@ -389,8 +438,29 @@ class _MyPageState extends State<MyPage> {
       ),
     );
   }
+  
+  /// Fluent UI 搜索无结果状态
+  Widget _buildFluentSearchEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: const [
+          Icon(fluent.FluentIcons.search, size: 64),
+          SizedBox(height: 16),
+          Text('未找到匹配的歌曲'),
+          SizedBox(height: 8),
+          Text('尝试其他关键词', style: TextStyle(fontSize: 12)),
+        ],
+      ),
+    );
+  }
 
-  Widget _buildFluentDetailStatisticsCard(int count) {
+  Widget _buildFluentDetailStatisticsCard(int count, {int? totalCount}) {
+    // 如果有搜索过滤，显示 "筛选出 X / 共 Y 首"
+    final String countText = (totalCount != null && totalCount != count)
+        ? '筛选出 $count / 共 $totalCount 首'
+        : '共 $count 首';
+    
     return fluent.Card(
       padding: const EdgeInsets.all(16.0),
       child: Row(
@@ -402,7 +472,7 @@ class _MyPageState extends State<MyPage> {
             style: TextStyle(fontWeight: FontWeight.w600),
           ),
           const SizedBox(width: 6),
-          Text('共 $count 首'),
+          Text(countText),
           const Spacer(),
           if (count > 0)
             fluent.FilledButton(
@@ -1119,7 +1189,42 @@ class _MyPageState extends State<MyPage> {
       _selectedPlaylist = null;
       _isEditMode = false;
       _selectedTrackIds.clear();
+      // 清除搜索状态
+      _isSearchMode = false;
+      _searchQuery = '';
+      _searchController.clear();
     });
+  }
+  
+  /// 切换搜索模式
+  void _toggleSearchMode() {
+    setState(() {
+      _isSearchMode = !_isSearchMode;
+      if (!_isSearchMode) {
+        _searchQuery = '';
+        _searchController.clear();
+      }
+    });
+  }
+  
+  /// 更新搜索关键词
+  void _onSearchChanged(String query) {
+    setState(() {
+      _searchQuery = query;
+    });
+  }
+  
+  /// 根据搜索关键词过滤歌曲列表
+  List<PlaylistTrack> _filterTracks(List<PlaylistTrack> tracks) {
+    if (_searchQuery.isEmpty) {
+      return tracks;
+    }
+    final query = _searchQuery.toLowerCase();
+    return tracks.where((track) {
+      return track.name.toLowerCase().contains(query) ||
+          track.artists.toLowerCase().contains(query) ||
+          track.album.toLowerCase().contains(query);
+    }).toList();
   }
 
   /// 生成歌曲唯一标识
@@ -1345,36 +1450,57 @@ class _MyPageState extends State<MyPage> {
 
   /// 构建歌单详情
   Widget _buildPlaylistDetail(Playlist playlist, ColorScheme colorScheme) {
-    final tracks = _playlistService.currentPlaylistId == playlist.id
+    final allTracks = _playlistService.currentPlaylistId == playlist.id
         ? _playlistService.currentTracks
         : <PlaylistTrack>[];
     final isLoading = _playlistService.isLoadingTracks;
+    
+    // 根据搜索关键词过滤歌曲
+    final filteredTracks = _filterTracks(allTracks);
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
       body: CustomScrollView(
         slivers: [
           // 顶部标题栏
-          _buildDetailAppBar(playlist, colorScheme, tracks),
+          _buildDetailAppBar(playlist, colorScheme, allTracks),
+          
+          // 搜索框（搜索模式时显示）
+          if (_isSearchMode)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: _buildSearchField(colorScheme),
+              ),
+            ),
 
           // 加载状态
-          if (isLoading && tracks.isEmpty)
+          if (isLoading && allTracks.isEmpty)
             const SliverFillRemaining(
               child: Center(
                 child: CircularProgressIndicator(),
               ),
             )
           // 歌曲列表
-          else if (tracks.isEmpty)
+          else if (allTracks.isEmpty)
             SliverFillRemaining(
               child: _buildDetailEmptyState(colorScheme),
+            )
+          // 搜索无结果
+          else if (filteredTracks.isEmpty && _searchQuery.isNotEmpty)
+            SliverFillRemaining(
+              child: _buildSearchEmptyState(colorScheme),
             )
           else ...[
             // 统计信息和播放按钮
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: _buildDetailStatisticsCard(colorScheme, tracks.length),
+                child: _buildDetailStatisticsCard(
+                  colorScheme, 
+                  filteredTracks.length,
+                  totalCount: allTracks.length,
+                ),
               ),
             ),
 
@@ -1384,10 +1510,12 @@ class _MyPageState extends State<MyPage> {
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
-                    final track = tracks[index];
-                    return _buildTrackItem(track, index, colorScheme);
+                    final track = filteredTracks[index];
+                    // 获取原始索引用于播放
+                    final originalIndex = allTracks.indexOf(track);
+                    return _buildTrackItem(track, originalIndex, colorScheme);
                   },
-                  childCount: tracks.length,
+                  childCount: filteredTracks.length,
                 ),
               ),
             ),
@@ -1396,6 +1524,88 @@ class _MyPageState extends State<MyPage> {
               child: SizedBox(height: 16),
             ),
           ],
+        ],
+      ),
+    );
+  }
+  
+  /// 构建搜索框
+  Widget _buildSearchField(ColorScheme colorScheme) {
+    if (_themeManager.isFluentFramework) {
+      return fluent.TextBox(
+        controller: _searchController,
+        placeholder: '搜索歌曲、歌手、专辑...',
+        prefix: const Padding(
+          padding: EdgeInsets.only(left: 8),
+          child: Icon(fluent.FluentIcons.search, size: 16),
+        ),
+        suffix: _searchQuery.isNotEmpty
+            ? fluent.IconButton(
+                icon: const Icon(fluent.FluentIcons.clear, size: 12),
+                onPressed: () {
+                  _searchController.clear();
+                  _onSearchChanged('');
+                },
+              )
+            : null,
+        onChanged: _onSearchChanged,
+        autofocus: true,
+      );
+    }
+    
+    return TextField(
+      controller: _searchController,
+      decoration: InputDecoration(
+        hintText: '搜索歌曲、歌手、专辑...',
+        prefixIcon: const Icon(Icons.search),
+        suffixIcon: _searchQuery.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.clear),
+                onPressed: () {
+                  _searchController.clear();
+                  _onSearchChanged('');
+                },
+              )
+            : null,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        filled: true,
+        fillColor: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+      onChanged: _onSearchChanged,
+      autofocus: true,
+    );
+  }
+  
+  /// 构建搜索无结果状态
+  Widget _buildSearchEmptyState(ColorScheme colorScheme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off,
+            size: 64,
+            color: colorScheme.onSurface.withOpacity(0.3),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '未找到匹配的歌曲',
+            style: TextStyle(
+              fontSize: 16,
+              color: colorScheme.onSurface.withOpacity(0.6),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '尝试其他关键词',
+            style: TextStyle(
+              fontSize: 14,
+              color: colorScheme.onSurface.withOpacity(0.5),
+            ),
+          ),
         ],
       ),
     );
@@ -1456,6 +1666,13 @@ class _MyPageState extends State<MyPage> {
             child: const Text('取消'),
           ),
         ] else ...[
+          // 搜索按钮
+          if (tracks.isNotEmpty)
+            IconButton(
+              icon: Icon(_isSearchMode ? Icons.search_off : Icons.search),
+              onPressed: _toggleSearchMode,
+              tooltip: _isSearchMode ? '关闭搜索' : '搜索歌曲',
+            ),
           // 编辑按钮
           if (tracks.isNotEmpty)
             IconButton(
@@ -1469,7 +1686,7 @@ class _MyPageState extends State<MyPage> {
             onPressed: () async {
               if (!_hasImportConfig(playlist)) {
                 _showUserNotification(
-                  '请先在“导入管理”中绑定来源后再同步',
+                  '请先在"导入管理"中绑定来源后再同步',
                   severity: fluent.InfoBarSeverity.warning,
                 );
                 return;
@@ -1495,7 +1712,12 @@ class _MyPageState extends State<MyPage> {
   }
 
   /// 构建详情页统计信息卡片
-  Widget _buildDetailStatisticsCard(ColorScheme colorScheme, int count) {
+  Widget _buildDetailStatisticsCard(ColorScheme colorScheme, int count, {int? totalCount}) {
+    // 如果有搜索过滤，显示 "筛选出 X / 共 Y 首歌曲"
+    final String countText = (totalCount != null && totalCount != count)
+        ? '筛选出 $count / 共 $totalCount 首歌曲'
+        : '共 $count 首歌曲';
+    
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -1508,7 +1730,7 @@ class _MyPageState extends State<MyPage> {
             ),
             const SizedBox(width: 12),
             Text(
-              '共 $count 首歌曲',
+              countText,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),

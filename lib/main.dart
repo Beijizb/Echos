@@ -63,7 +63,7 @@ void main() async {
     }
     
     WindowOptions windowOptions = const WindowOptions(
-      size: Size(1200, 800),
+      size: Size(1320, 880),
       minimumSize: Size(360, 640),
       center: true,
       backgroundColor: Colors.transparent,
@@ -188,7 +188,7 @@ void main() async {
   // Windows 平台初始化 bitsdojo_window 设置（与 window_manager 配合使用）
   if (Platform.isWindows) {
     doWhenWindowReady(() {
-      const initialSize = Size(1200, 800);
+      const initialSize = Size(1320, 880);
       const minSize = Size(360, 640);
       
       appWindow.minSize = minSize;
