@@ -75,15 +75,17 @@ void main() async {
         await Window.initialize();
       } catch (_) {}
     }
-    
-    WindowOptions windowOptions = const WindowOptions(
-      size: Size(1320, 880),
-      minimumSize: Size(320, 120),
+
+    final WindowOptions windowOptions = WindowOptions(
+      size: const Size(1320, 880),
+      minimumSize: const Size(320, 120),
       center: true,
-      backgroundColor: Colors.transparent,
+      // 透明背景 + 自绘标题栏仅适用于 Windows
+      backgroundColor: Platform.isWindows ? Colors.transparent : Colors.white,
       skipTaskbar: false,
-      titleBarStyle: TitleBarStyle.hidden, // 隐藏系统标题栏，使用自定义标题栏
-      windowButtonVisibility: false,
+      titleBarStyle:
+          Platform.isWindows ? TitleBarStyle.hidden : TitleBarStyle.normal,
+      windowButtonVisibility: !Platform.isWindows,
     );
     
     windowManager.waitUntilReadyToShow(windowOptions, () async {
@@ -299,9 +301,9 @@ class MyApp extends StatelessWidget {
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: themeManager.themeMode,
-      home: Platform.isWindows
-          ? _WindowsRoundedContainer(child: const MainLayout())
-          : const MainLayout(),
+          home: Platform.isWindows
+            ? _WindowsRoundedContainer(child: const MainLayout())
+            : const MainLayout(),
         );
       },
     );
