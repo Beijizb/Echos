@@ -18,7 +18,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   HANDLE mutex = CreateMutex(nullptr, TRUE, kUniqueMutexName);
   (void)mutex;
   if (GetLastError() == ERROR_ALREADY_EXISTS) {
-    HWND existing_window = FindWindow(L"CyreneMusicWindow", nullptr);
+    HWND existing_window = FindWindow(L"FLUTTER_RUNNER_WIN32_WINDOW", nullptr);
     if (existing_window) {
       // If the window is hidden (e.g., minimized to tray), show it first
       if (!IsWindowVisible(existing_window)) {
