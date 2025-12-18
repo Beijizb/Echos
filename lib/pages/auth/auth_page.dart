@@ -500,38 +500,42 @@ class _LoginViewState extends State<_LoginView> {
             colorScheme: colorScheme,
           ),
 
-          if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) ...[
-            const SizedBox(height: 12),
-
-            OutlinedButton.icon(
-              onPressed: _isLoading
-                  ? null
-                  : () async {
-                      final result = await AuthService().loginWithLinuxDo();
-                      if (!mounted) return;
-                      if (result['success'] == true) {
-                        if (AuthOverlayService().isVisible) {
-                          AuthOverlayService().hide(true);
-                        } else {
-                          Navigator.pop(context, true);
-                        }
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _isLoading
+                ? null
+                : () async {
+                    final result = await AuthService().loginWithLinuxDo();
+                    if (!mounted) return;
+                    if (result['success'] == true) {
+                      // 登录成功后，自动上报IP归属地
+                      AuthService().updateLocation();
+                      
+                      if (AuthOverlayService().isVisible) {
+                        AuthOverlayService().hide(true);
                       } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(result['message']),
-                            backgroundColor: colorScheme.error,
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
+                        Navigator.pop(context, true);
                       }
-                    },
-              icon: const Icon(Icons.forum_outlined),
-              label: const Text('Linux Do 登录'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF007AFF),
-                side: const BorderSide(color: Color(0xFF007AFF)),
-              ),
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(result['message']),
+                          backgroundColor: colorScheme.error,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  },
+            icon: const Icon(Icons.forum_outlined),
+            label: const Text('通过linux do授权'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF007AFF),
+              side: const BorderSide(color: Color(0xFF007AFF)),
+              padding: const EdgeInsets.symmetric(vertical: 12),
             ),
+          ),
+
+          if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) ...[
             const SizedBox(height: 12),
 
             OutlinedButton.icon(
@@ -1569,36 +1573,37 @@ class _CupertinoLoginViewState extends State<_CupertinoLoginView> {
           onPressed: _handleLogin,
         ),
         
-        if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) ...[
-          const SizedBox(height: 12),
-          CupertinoButton(
-            padding: EdgeInsets.zero,
-            onPressed: _isLoading
-                ? null
-                : () async {
-                    final result = await AuthService().loginWithLinuxDo();
-                    if (!mounted) return;
-                    if (result['success'] == true) {
-                      if (AuthOverlayService().isVisible) {
-                        AuthOverlayService().hide(true);
-                      } else {
-                        Navigator.pop(context, true);
-                      }
+        const SizedBox(height: 12),
+        CupertinoButton(
+          padding: EdgeInsets.zero,
+          onPressed: _isLoading
+              ? null
+              : () async {
+                  final result = await AuthService().loginWithLinuxDo();
+                  if (!mounted) return;
+                  if (result['success'] == true) {
+                    // 登录成功后，自动上报IP归属地
+                    AuthService().updateLocation();
+
+                    if (AuthOverlayService().isVisible) {
+                      AuthOverlayService().hide(true);
                     } else {
-                      _showCupertinoAlert(result['message']);
+                      Navigator.pop(context, true);
                     }
-                  },
-            child: Container(
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                border: Border.all(color: CupertinoColors.activeBlue),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text('Linux Do 登录'),
+                  } else {
+                    _showCupertinoAlert(result['message']);
+                  }
+                },
+          child: Container(
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border.all(color: CupertinoColors.activeBlue),
+              borderRadius: BorderRadius.circular(8),
             ),
+            child: const Text('通过linux do授权'),
           ),
-        ],
+        ),
 
         const SizedBox(height: 20),
         

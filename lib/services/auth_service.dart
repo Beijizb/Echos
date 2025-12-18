@@ -9,6 +9,7 @@ import 'url_service.dart';
 import 'auth_overlay_service.dart';
 import 'location_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:window_manager/window_manager.dart';
 
 /// 用户信息模型
 class User {
@@ -376,10 +377,124 @@ class AuthService extends ChangeNotifier {
           request.response
             ..statusCode = 200
             ..headers.contentType = ContentType.html
-            ..write('<html><head><meta charset="utf-8"><title>正在完成</title></head><body><div style="text-align:center;margin-top:50px;"><h1>验证成功</h1><p>授权码已捕获，请返回应用查看。</p></div></body></html>');
+            ..write('''
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>验证成功 - Cyrene Music</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f5f7;
+            color: #1d1d1f;
+        }
+        .container {
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            max-width: 90%;
+            width: 400px;
+        }
+        .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            color: #007aff;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+        p {
+            font-size: 16px;
+            color: #86868b;
+            line-height: 1.5;
+            margin-bottom: 24px;
+        }
+        .notice {
+            color: #007aff;
+            font-weight: 500;
+        }
+        .btn {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 12px 24px;
+            background-color: #007aff;
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 500;
+            transition: opacity 0.2s;
+        }
+        .btn:active {
+            opacity: 0.8;
+        }
+        .countdown {
+            font-size: 14px;
+            color: #86868b;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">✅</div>
+        <h1>验证成功</h1>
+        <p>授权码已成功捕获。</p>
+        <p class="notice">正在为您返回 Cyrene Music...</p>
+        <a href="cyrenemusic://callback" class="btn" id="manualBtn">手动返回应用</a>
+        <div class="countdown" id="timer">正在处理授权信息...</div>
+    </div>
+    <script>
+        var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        var seconds = 3;
+        
+        if (isMobile) {
+            var timer = setInterval(function() {
+                seconds--;
+                document.getElementById('timer').innerText = seconds + " 秒后自动跳转";
+                if (seconds <= 0) {
+                    clearInterval(timer);
+                    window.location.href = "cyrenemusic://callback";
+                }
+            }, 1000);
+        } else {
+            // 桌面端提示
+            document.getElementById('timer').innerText = "授权成功，应用窗口已尝试自动激活";
+            document.getElementById('manualBtn').style.display = "none"; 
+        }
+        
+        // 尝试立即跳转（仅移动端）
+        if (isMobile) {
+            window.location.href = "cyrenemusic://callback";
+        }
+    </script>
+</body>
+</html>
+''');
           
           await request.response.close();
           print('📤 [AuthService] 已发送响应给浏览器');
+          
+          // 桌面端：收到回调后自动激活并置顶窗口
+          if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+            try {
+              await windowManager.show();
+              await windowManager.focus();
+              print('🪟 [AuthService] 已尝试激活并置顶桌面端窗口');
+            } catch (e) {
+              print('⚠️ [AuthService] 激活窗口失败: $e');
+            }
+          }
           
           if (!completer.isCompleted) {
             completer.complete(code);
