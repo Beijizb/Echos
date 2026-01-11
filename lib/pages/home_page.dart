@@ -77,6 +77,7 @@ class _HomePageState extends State<HomePage>
   String? _initialSearchKeyword;
   int _lastHandledSearchRequestId = 0;
   int _forYouReloadToken = 0;
+  bool _reverseTransition = false; // 用于控制滑动动画方向
 
   @override
   bool get wantKeepAlive => true; // 保持页面状态
@@ -1229,46 +1230,13 @@ class _HomePageState extends State<HomePage>
         onClose: () {
           if (!mounted) return;
           setState(() {
+            _reverseTransition = true;
             _showSearch = false;
             _initialSearchKeyword = null;
           });
           _syncGlobalBackHandler();
         },
         initialKeyword: _initialSearchKeyword,
-      );
-    }
-
-    if (_showDailyDetail) {
-      return SafeArea(
-        child: Column(
-          children: [
-            _buildCupertinoBackHeader(context, '每日推荐', _closeDailyDetail),
-            Expanded(
-              child: DailyRecommendDetailPage(
-                tracks: _dailyTracks,
-                embedded: true,
-                onClose: _closeDailyDetail,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (_showDiscoverDetail && _discoverPlaylistId != null) {
-      return SafeArea(
-        child: Column(
-          children: [
-            _buildCupertinoBackHeader(context, '歌单详情', _closeDiscoverDetail),
-            Expanded(
-              child: PrimaryScrollController.none(
-                child: DiscoverPlaylistDetailContent(
-                  playlistId: _discoverPlaylistId!,
-                ),
-              ),
-            ),
-          ],
-        ),
       );
     }
 
@@ -1394,20 +1362,36 @@ class _HomePageState extends State<HomePage>
               HomeForYouTab(
                 key: ValueKey('for_you_$_forYouReloadToken'),
                 onOpenPlaylistDetail: (id) {
-                  setState(() {
-                    _homeTabIndex = 0;
-                    _discoverPlaylistId = id;
-                    _showDiscoverDetail = true;
-                  });
-                  _syncGlobalBackHandler();
+                  if (ThemeManager().isFluentFramework) {
+                    setState(() {
+                      _homeTabIndex = 0;
+                      _discoverPlaylistId = id;
+                      _showDiscoverDetail = true;
+                    });
+                    _syncGlobalBackHandler();
+                    return;
+                  }
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (context) => DiscoverPlaylistDetailPage(playlistId: id),
+                    ),
+                  );
                 },
                 onOpenDailyDetail: (tracks) {
-                  setState(() {
-                    _homeTabIndex = 0;
-                    _dailyTracks = tracks;
-                    _showDailyDetail = true;
-                  });
-                  _syncGlobalBackHandler();
+                  if (ThemeManager().isFluentFramework) {
+                    setState(() {
+                      _homeTabIndex = 0;
+                      _dailyTracks = tracks;
+                      _showDailyDetail = true;
+                    });
+                    _syncGlobalBackHandler();
+                    return;
+                  }
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (context) => DailyRecommendDetailPage(tracks: tracks),
+                    ),
+                  );
                 },
               ),
             ] else ...[
@@ -1482,6 +1466,7 @@ class _HomePageState extends State<HomePage>
     final isLoggedIn = await _checkLoginStatus();
     if (isLoggedIn && mounted) {
       setState(() {
+        _reverseTransition = false;
         _showSearch = true;
         _initialSearchKeyword = null;
       });
@@ -1526,10 +1511,31 @@ class _HomePageState extends State<HomePage>
     _openSearchFromExternal(request.keyword);
   }
 
+  void _closeDiscoverDetail() {
+    if (!mounted) return;
+    setState(() {
+      _reverseTransition = true;
+      _showDiscoverDetail = false;
+      _discoverPlaylistId = null;
+    });
+    _syncGlobalBackHandler();
+  }
+
+  void _closeDailyDetail() {
+    if (!mounted) return;
+    setState(() {
+      _reverseTransition = true;
+      _showDailyDetail = false;
+      _dailyTracks = const [];
+    });
+    _syncGlobalBackHandler();
+  }
+
   void _openSearchFromExternal(String? keyword) {
     if (!mounted) return;
     final normalizedKeyword = keyword?.trim();
     setState(() {
+      _reverseTransition = false;
       _initialSearchKeyword =
           (normalizedKeyword == null || normalizedKeyword.isEmpty)
           ? null
@@ -1619,54 +1625,13 @@ class _HomePageState extends State<HomePage>
         onClose: () {
           if (!mounted) return;
           setState(() {
+            _reverseTransition = true;
             _showSearch = false;
             _initialSearchKeyword = null;
           });
           _syncGlobalBackHandler();
         },
         initialKeyword: _initialSearchKeyword,
-      );
-    }
-
-    if (_showDailyDetail) {
-      return Material(
-        key: const ValueKey('material_daily_detail'),
-        color: Colors.transparent,
-        child: SafeArea(
-          child: DailyRecommendDetailPage(
-            tracks: _dailyTracks,
-            embedded: true,
-            onClose: _closeDailyDetail,
-          ),
-        ),
-      );
-    }
-
-    if (_showDiscoverDetail && _discoverPlaylistId != null) {
-      return Material(
-        key: ValueKey('material_playlist_${_discoverPlaylistId!}'),
-        color: Colors.transparent,
-        child: SafeArea(
-          child: Column(
-            children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded),
-                  onPressed: _closeDiscoverDetail,
-                  tooltip: '返回',
-                ),
-              ),
-              Expanded(
-                child: PrimaryScrollController.none(
-                  child: DiscoverPlaylistDetailContent(
-                    playlistId: _discoverPlaylistId!,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       );
     }
 
@@ -1701,17 +1666,26 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildSlideTransition(Widget child, Animation<double> animation) {
-    final isReverse = animation is ReverseAnimation;
-    final beginOffset = isReverse
-        ? const Offset(-1.0, 0.0)
-        : const Offset(1.0, 0.0);
+    // 根据 _reverseTransition 决定动画方向
+    // 只有状态为 forward 时才是新进入的组件
+    final bool isEntering = animation.status == AnimationStatus.forward;
+    
+    Offset begin;
+    if (_reverseTransition) {
+      // 退出 (Pop)：新页面从左滑入 (-1,0)，旧页面向右滑出 (1,0)
+      begin = isEntering ? const Offset(-1.0, 0.0) : const Offset(1.0, 0.0);
+    } else {
+      // 进入 (Push)：新页面从右滑入 (1,0)，旧页面向左滑出 (-1,0)
+      begin = isEntering ? const Offset(1.0, 0.0) : const Offset(-1.0, 0.0);
+    }
+
     final curvedAnimation = CurvedAnimation(
       parent: animation,
       curve: Curves.easeOutCubic,
       reverseCurve: Curves.easeInCubic,
     );
     final positionAnimation = Tween<Offset>(
-      begin: beginOffset,
+      begin: begin,
       end: Offset.zero,
     ).animate(curvedAnimation);
 
@@ -1819,20 +1793,36 @@ class _HomePageState extends State<HomePage>
             HomeForYouTab(
               key: ValueKey('for_you_$_forYouReloadToken'),
               onOpenPlaylistDetail: (id) {
-                setState(() {
-                  _homeTabIndex = 0;
-                  _discoverPlaylistId = id;
-                  _showDiscoverDetail = true;
-                });
-                _syncGlobalBackHandler();
+                if (ThemeManager().isFluentFramework) {
+                  setState(() {
+                    _homeTabIndex = 0;
+                    _discoverPlaylistId = id;
+                    _showDiscoverDetail = true;
+                  });
+                  _syncGlobalBackHandler();
+                  return;
+                }
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => DiscoverPlaylistDetailPage(playlistId: id),
+                  ),
+                );
               },
               onOpenDailyDetail: (tracks) {
-                setState(() {
-                  _homeTabIndex = 0;
-                  _dailyTracks = tracks;
-                  _showDailyDetail = true;
-                });
-                _syncGlobalBackHandler();
+                if (ThemeManager().isFluentFramework) {
+                  setState(() {
+                    _homeTabIndex = 0;
+                    _dailyTracks = tracks;
+                    _showDailyDetail = true;
+                  });
+                  _syncGlobalBackHandler();
+                  return;
+                }
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => DailyRecommendDetailPage(tracks: tracks),
+                  ),
+                );
               },
             ),
           ] else ...[
@@ -1859,6 +1849,7 @@ class _HomePageState extends State<HomePage>
     final Color embeddedBgColor = useWindowEffect
         ? Colors.transparent
         : fluentTheme.micaBackgroundColor;
+
     if (_showDailyDetail) {
       return Container(
         key: const ValueKey('fluent_daily_detail'),
@@ -1895,6 +1886,7 @@ class _HomePageState extends State<HomePage>
           onClose: () {
             if (!mounted) return;
             setState(() {
+              _reverseTransition = true;
               _showSearch = false;
               _initialSearchKeyword = null;
             });
@@ -1982,24 +1974,6 @@ class _HomePageState extends State<HomePage>
       _homeTabIndex = index;
       _showDiscoverDetail = false;
       _discoverPlaylistId = null;
-      _showDailyDetail = false;
-      _dailyTracks = const [];
-    });
-    _syncGlobalBackHandler();
-  }
-
-  void _closeDiscoverDetail() {
-    if (!mounted) return;
-    setState(() {
-      _showDiscoverDetail = false;
-      _discoverPlaylistId = null;
-    });
-    _syncGlobalBackHandler();
-  }
-
-  void _closeDailyDetail() {
-    if (!mounted) return;
-    setState(() {
       _showDailyDetail = false;
       _dailyTracks = const [];
     });

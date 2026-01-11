@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 import '../services/netease_discover_service.dart';
 import '../models/netease_discover.dart';
@@ -33,12 +34,20 @@ class DiscoverPlaylistDetailPage extends StatelessWidget {
       child: Builder(
         builder: (context) {
           return Scaffold(
-            backgroundColor: Colors.transparent,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             appBar: AppBar(
               backgroundColor: Colors.transparent,
               surfaceTintColor: Colors.transparent,
               elevation: 0,
               scrolledUnderElevation: 0,
+              systemOverlayStyle: SystemUiOverlayStyle(
+                statusBarColor: Colors.transparent,
+                statusBarIconBrightness:
+                    Theme.of(context).brightness == Brightness.dark
+                        ? Brightness.light
+                        : Brightness.dark,
+                statusBarBrightness: Theme.of(context).brightness,
+              ),
               title: const Text('歌单详情'),
               actions: [
                 IconButton(
@@ -178,13 +187,16 @@ class _DiscoverPlaylistDetailContentState
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: CachedNetworkImage(
-                    imageUrl: detail.coverImgUrl,
-                    width: 120,
-                    height: 120,
-                    fit: BoxFit.cover,
+                Hero(
+                  tag: 'playlist_cover_${widget.playlistId}',
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: CachedNetworkImage(
+                      imageUrl: detail.coverImgUrl,
+                      width: 120,
+                      height: 120,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -538,25 +550,28 @@ class _DiscoverPlaylistDetailContentState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 歌单封面
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: CachedNetworkImage(
-              imageUrl: detail.coverImgUrl,
-              width: 120,
-              height: 120,
-              fit: BoxFit.cover,
-              placeholder: (context, url) => Container(
+          Hero(
+            tag: 'playlist_cover_${detail.id}', // Use detail.id or widget.playlistId, ensuring they match
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: CachedNetworkImage(
+                imageUrl: detail.coverImgUrl,
                 width: 120,
                 height: 120,
-                color: isDark ? const Color(0xFF2C2C2E) : CupertinoColors.systemGrey6,
-                child: const CupertinoActivityIndicator(),
-              ),
-              errorWidget: (context, url, error) => Container(
-                width: 120,
-                height: 120,
-                color: isDark ? const Color(0xFF2C2C2E) : CupertinoColors.systemGrey6,
-                child: const Icon(CupertinoIcons.music_note_2,
-                    size: 40, color: CupertinoColors.systemGrey),
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  width: 120,
+                  height: 120,
+                  color: isDark ? const Color(0xFF2C2C2E) : CupertinoColors.systemGrey6,
+                  child: const CupertinoActivityIndicator(),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  width: 120,
+                  height: 120,
+                  color: isDark ? const Color(0xFF2C2C2E) : CupertinoColors.systemGrey6,
+                  child: const Icon(CupertinoIcons.music_note_2,
+                      size: 40, color: CupertinoColors.systemGrey),
+                ),
               ),
             ),
           ),
