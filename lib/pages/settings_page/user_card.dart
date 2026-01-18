@@ -1,11 +1,14 @@
 import 'dart:io';
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:fluent_ui/fluent_ui.dart' as fluent_ui;
 import '../../services/auth_service.dart';
 import '../../services/location_service.dart';
 import '../../services/donate_service.dart';
+import '../../services/url_service.dart';
+import '../../services/avatar_fetch_service.dart';
 import '../../utils/theme_manager.dart';
 import '../auth/auth_page.dart';
 import '../auth/qr_login_dialog.dart';
@@ -1159,13 +1162,18 @@ class _UserCardState extends State<UserCard> {
     return _buildUserInfoCard(context, user);
   }
 
-  /// 构建登录卡片（未登录状态）
   Widget _buildLoginCard(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
     
-    return Card(
-      child: Padding(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Container(
         padding: const EdgeInsets.all(24.0),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(24),
+        ),
         child: Row(
           children: [
             Container(
@@ -1188,14 +1196,14 @@ class _UserCardState extends State<UserCard> {
                 children: [
                   Text(
                     '未登录',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '登录后可享受更多功能',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    style: theme.textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
                   ),
@@ -1226,10 +1234,16 @@ class _UserCardState extends State<UserCard> {
       builder: (context, child) {
         final location = LocationService().currentLocation;
         final isLoadingLocation = LocationService().isLoading;
-        
-        return Card(
-          child: Padding(
+        final theme = Theme.of(context);
+      
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Container(
             padding: const EdgeInsets.all(24.0),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(24),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1242,21 +1256,58 @@ class _UserCardState extends State<UserCard> {
                         height: 60,
                         color: colorScheme.primaryContainer,
                         child: avatarUrl != null
-                            ? Image.network(
-                                avatarUrl,
-                                width: 60,
-                                height: 60,
-                                fit: BoxFit.cover,
-                                headers: const {
-                                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                                  'Referer': 'https://linux.do/',
-                                },
-                                errorBuilder: (context, error, stackTrace) => Icon(
-                                  Icons.person,
-                                  size: 32,
-                                  color: colorScheme.onPrimaryContainer,
-                                ),
-                              )
+                            ? (avatarUrl.contains('linux.do')
+                                // Linux DO 头像需要使用 AvatarFetchService 加载以绕过 Cloudflare
+                                ? FutureBuilder<Uint8List?>(
+                                    future: AvatarFetchService().fetchAvatar(
+                                      avatarUrl,
+                                      cacheKey: 'linuxdo_${user.id}',
+                                    ),
+                                    builder: (context, snapshot) {
+                                      if (snapshot.connectionState == ConnectionState.waiting) {
+                                        return Center(
+                                          child: SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: colorScheme.onPrimaryContainer,
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                      if (snapshot.hasData && snapshot.data != null) {
+                                        return Image.memory(
+                                          snapshot.data!,
+                                          width: 60,
+                                          height: 60,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) => Icon(
+                                            Icons.person,
+                                            size: 32,
+                                            color: colorScheme.onPrimaryContainer,
+                                          ),
+                                        );
+                                      }
+                                      return Icon(
+                                        Icons.person,
+                                        size: 32,
+                                        color: colorScheme.onPrimaryContainer,
+                                      );
+                                    },
+                                  )
+                                // 其他头像（如 QQ 头像）可以直接使用 Image.network
+                                : Image.network(
+                                    avatarUrl,
+                                    width: 60,
+                                    height: 60,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) => Icon(
+                                      Icons.person,
+                                      size: 32,
+                                      color: colorScheme.onPrimaryContainer,
+                                    ),
+                                  ))
                             : Icon(
                                 Icons.person,
                                 size: 32,
@@ -1274,7 +1325,7 @@ class _UserCardState extends State<UserCard> {
                             children: [
                               Text(
                                 user.username,
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -1312,7 +1363,7 @@ class _UserCardState extends State<UserCard> {
                                       const SizedBox(width: 4),
                                       Text(
                                         _getSponsorBadgeText(),
-                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        style: theme.textTheme.bodySmall?.copyWith(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,
                                           fontSize: 11,
@@ -1337,7 +1388,7 @@ class _UserCardState extends State<UserCard> {
                               Expanded(
                                 child: Text(
                                   user.email,
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  style: theme.textTheme.bodySmall?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
                                   ),
                                   overflow: TextOverflow.ellipsis,
@@ -1370,7 +1421,7 @@ class _UserCardState extends State<UserCard> {
                                     const SizedBox(width: 4),
                                     Text(
                                       '获取中...',
-                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      style: theme.textTheme.bodySmall?.copyWith(
                                         color: colorScheme.onSurfaceVariant,
                                       ),
                                     ),
@@ -1380,7 +1431,7 @@ class _UserCardState extends State<UserCard> {
                                 Expanded(
                                   child: Text(
                                     location.shortDescription,
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    style: theme.textTheme.bodySmall?.copyWith(
                                       color: colorScheme.onSurfaceVariant,
                                     ),
                                     overflow: TextOverflow.ellipsis,
@@ -1392,7 +1443,7 @@ class _UserCardState extends State<UserCard> {
                                     children: [
                                       Text(
                                         '获取失败',
-                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        style: theme.textTheme.bodySmall?.copyWith(
                                           color: colorScheme.error,
                                         ),
                                       ),
@@ -1416,9 +1467,11 @@ class _UserCardState extends State<UserCard> {
                         ],
                       ),
                     ),
+                    const SizedBox(width: 12),
+                    // 退出按钮
                     IconButton(
-                      onPressed: () => _handleLogout(context),
-                      icon: const Icon(Icons.logout),
+                      onPressed: () => AuthService().logout(),
+                      icon: Icon(Icons.logout_rounded, color: colorScheme.error),
                       tooltip: '退出登录',
                     ),
                   ],
@@ -1813,8 +1866,11 @@ class _UserCardState extends State<UserCard> {
     // 优先使用服务器返回的头像 URL（如 Linux Do 用户），否则尝试从 QQ 邮箱生成
     final qqNumber = _extractQQNumber(user.email);
     final avatarUrl = user.avatarUrl ?? _getQQAvatarUrl(qqNumber);
+    final isLinuxDoAvatar = avatarUrl != null && avatarUrl.contains('linux.do');
+    
     print('🖼️ [UserCard-Fluent] user.avatarUrl: ${user.avatarUrl}');
     print('🖼️ [UserCard-Fluent] 最终使用的 avatarUrl: $avatarUrl');
+    print('🖼️ [UserCard-Fluent] 是否为 Linux Do 头像: $isLinuxDoAvatar');
     
     return AnimatedBuilder(
       animation: LocationService(),
@@ -1833,31 +1889,30 @@ class _UserCardState extends State<UserCard> {
                     width: 60,
                     height: 60,
                     color: const Color(0xFF0078D4),
-                    child: avatarUrl != null
-                        ? Image.network(
-                            avatarUrl,
-                            width: 60,
-                            height: 60,
-                            fit: BoxFit.cover,
-                            headers: const {
-                              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                              'Referer': 'https://linux.do/',
-                            },
-                            errorBuilder: (context, error, stackTrace) {
-                              print('❌ [UserCard-Fluent] 头像加载失败: $error');
-                              print('❌ [UserCard-Fluent] 堆栈: $stackTrace');
-                              return const Icon(
+                    child: isLinuxDoAvatar
+                        ? _LinuxDoAvatarWidget(
+                            url: avatarUrl!,
+                            userId: user.id,
+                          )
+                        : avatarUrl != null
+                            ? Image.network(
+                                avatarUrl,
+                                width: 60,
+                                height: 60,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Icon(
+                                    fluent_ui.FluentIcons.contact,
+                                    size: 32,
+                                    color: Colors.white,
+                                  );
+                                },
+                              )
+                            : const Icon(
                                 fluent_ui.FluentIcons.contact,
                                 size: 32,
                                 color: Colors.white,
-                              );
-                            },
-                          )
-                        : const Icon(
-                            fluent_ui.FluentIcons.contact,
-                            size: 32,
-                            color: Colors.white,
-                          ),
+                              ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -2829,6 +2884,107 @@ class _FluentLoginDialogHelper {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Linux Do 头像组件
+/// 
+/// 使用 WebView 服务获取头像，绕过 Cloudflare 保护
+class _LinuxDoAvatarWidget extends StatefulWidget {
+  final String url;
+  final int userId;
+
+  const _LinuxDoAvatarWidget({
+    required this.url,
+    required this.userId,
+  });
+
+  @override
+  State<_LinuxDoAvatarWidget> createState() => _LinuxDoAvatarWidgetState();
+}
+
+class _LinuxDoAvatarWidgetState extends State<_LinuxDoAvatarWidget> {
+  Uint8List? _avatarData;
+  bool _isLoading = true;
+  bool _hasFailed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAvatar();
+  }
+
+  @override
+  void didUpdateWidget(_LinuxDoAvatarWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url) {
+      _loadAvatar();
+    }
+  }
+
+  Future<void> _loadAvatar() async {
+    setState(() {
+      _isLoading = true;
+      _hasFailed = false;
+    });
+
+    try {
+      final data = await AvatarFetchService().fetchAvatar(
+        widget.url,
+        cacheKey: 'linuxdo_${widget.userId}',
+      );
+
+      if (mounted) {
+        setState(() {
+          _avatarData = data;
+          _isLoading = false;
+          _hasFailed = data == null;
+        });
+      }
+    } catch (e) {
+      print('❌ [LinuxDoAvatar] 加载失败: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasFailed = true;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: fluent_ui.ProgressRing(strokeWidth: 2),
+        ),
+      );
+    }
+
+    if (_hasFailed || _avatarData == null) {
+      return const Icon(
+        fluent_ui.FluentIcons.contact,
+        size: 32,
+        color: Colors.white,
+      );
+    }
+
+    return Image.memory(
+      _avatarData!,
+      width: 60,
+      height: 60,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        return const Icon(
+          fluent_ui.FluentIcons.contact,
+          size: 32,
+          color: Colors.white,
+        );
+      },
     );
   }
 }

@@ -5,6 +5,7 @@ import '../../services/sleep_timer_service.dart';
 import '../../services/download_service.dart';
 import '../../models/track.dart';
 import '../../models/song_detail.dart';
+import '../../widgets/wavy_split_progress_bar.dart';
 
 /// 移动端播放器控制区域组件
 /// 包含进度条、播放控制按钮等（不包含音量控制，改为控制中心按钮）
@@ -69,24 +70,19 @@ class MobilePlayerControls extends StatelessWidget {
         
         return Column(
           children: [
-            SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                trackHeight: 3,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-                activeTrackColor: Colors.white,
-                inactiveTrackColor: Colors.white.withOpacity(0.3),
-                thumbColor: Colors.white,
-                overlayColor: Colors.white.withOpacity(0.2),
-              ),
-              child: Slider(
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+              child: WavySplitProgressBar(
                 value: duration.inMilliseconds > 0
-                    ? position.inMilliseconds.toDouble()
-                    : 0,
-                max: duration.inMilliseconds.toDouble(),
+                    ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
+                    : 0.0,
+                isPlaying: player.isPlaying,
                 onChanged: (value) {
-                  player.seek(Duration(milliseconds: value.toInt()));
+                  final seekTo = duration.inMilliseconds * value;
+                  player.seek(Duration(milliseconds: seekTo.toInt()));
                 },
+                activeColor: Colors.white,
+                inactiveColor: Colors.white.withOpacity(0.2),
               ),
             ),
             Padding(
@@ -188,12 +184,16 @@ class MobilePlayerControls extends StatelessWidget {
                 SizedBox(width: buttonSpacing),
                 
                 // 播放/暂停
-                Container(
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
                   width: playButtonSize,
                   height: playButtonSize,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(
+                      player.isPlaying ? 16 : playButtonSize / 2,
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.white.withOpacity(0.3),

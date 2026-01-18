@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
+import 'package:cached_network_image/cached_network_image.dart';
 
 /// 颜色提取结果
 class ColorExtractionResult {
@@ -28,25 +30,28 @@ class ColorExtractionResult {
   /// 获取主题色（优先级：vibrant > dominant > muted）
   Color? get themeColor => vibrantColor ?? dominantColor ?? mutedColor;
 
-  /// 获取动态背景所需的3个颜色
+  /// 获取动态背景所需的色彩合集 (最少 5 个)
   List<Color> get dynamicColors {
     final colors = <Color>[];
-    
-    // 优先使用 vibrant 和 muted 颜色
-    if (vibrantColor != null) colors.add(vibrantColor!);
-    if (mutedColor != null) colors.add(mutedColor!);
-    if (dominantColor != null && colors.length < 3) colors.add(dominantColor!);
-    if (lightVibrantColor != null && colors.length < 3) colors.add(lightVibrantColor!);
-    if (darkVibrantColor != null && colors.length < 3) colors.add(darkVibrantColor!);
-    if (lightMutedColor != null && colors.length < 3) colors.add(lightMutedColor!);
-    if (darkMutedColor != null && colors.length < 3) colors.add(darkMutedColor!);
-    
-    // 如果颜色不足3个，用默认颜色填充
-    while (colors.length < 3) {
-      colors.add(const Color(0xFF424242)); // Colors.grey[800]
+    final candidates = [
+      vibrantColor,
+      mutedColor,
+      dominantColor,
+      darkVibrantColor,
+      lightVibrantColor,
+      darkMutedColor,
+      lightMutedColor,
+    ];
+
+    for (final c in candidates) {
+      if (c != null && !colors.contains(c)) {
+        colors.add(c);
+      }
     }
     
-    return colors.take(3).toList();
+    // 如果色彩不足 5 个，会在 MeshGradientBackground 的逻辑中进行生成/补偿
+    // 这里仅保证尽可能多地提供原始色彩
+    return colors;
   }
 }
 
@@ -166,6 +171,102 @@ class ColorExtractionService {
   void clearCache() {
     _cache.clear();
   }
+
+  /// 从已缓存的网络图片提取颜色（利用 CachedNetworkImageProvider 的缓存机制）
+  /// 这避免了重复下载图片，特别适合预加载场景
+  Future<ColorExtractionResult?> extractColorsFromCachedImage(
+    String imageUrl, {
+    int sampleSize = 32,
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
+    if (imageUrl.isEmpty) return null;
+
+    // 1. 检查颜色缓存
+    if (_cache.containsKey(imageUrl)) {
+      return _cache[imageUrl];
+    }
+
+    // 判断是否是网络 URL
+    final isNetwork = imageUrl.startsWith('http://') || imageUrl.startsWith('https://');
+    if (!isNetwork) {
+      // 本地文件直接使用原方法
+      return extractColorsFromUrl(imageUrl, sampleSize: sampleSize, timeout: timeout);
+    }
+
+    try {
+      // 2. 使用 CachedNetworkImageProvider 获取图片（会自动使用缓存）
+      final provider = CachedNetworkImageProvider(imageUrl);
+      final imageInfo = await _loadImageFromProvider(provider, timeout);
+      
+      if (imageInfo != null) {
+        // 将图片转换为字节数据
+        final byteData = await imageInfo.image.toByteData(format: ui.ImageByteFormat.png);
+        if (byteData == null) {
+          debugPrint('⚠️ [ColorExtraction] 无法转换图片为字节数据');
+          return null;
+        }
+        
+        final imageBytes = byteData.buffer.asUint8List();
+        debugPrint('🎨 [ColorExtraction] 从 ImageProvider 提取颜色 (${imageBytes.length} bytes)');
+        
+        final result = await compute(
+          _extractColorsInIsolate,
+          _ColorExtractionParams(
+            imageBytes: imageBytes,
+            sampleSize: sampleSize,
+          ),
+        );
+
+        if (result != null) {
+          _cacheResult(imageUrl, result);
+        }
+        return result;
+      } else {
+        debugPrint('⚠️ [ColorExtraction] 无法加载图片: $imageUrl');
+        return null;
+      }
+    } on TimeoutException {
+      debugPrint('⏱️ [ColorExtraction] 加载图片超时: $imageUrl');
+      return null;
+    } catch (e) {
+      debugPrint('⚠️ [ColorExtraction] 从 ImageProvider 提取颜色失败: $e');
+      return null;
+    }
+  }
+
+  /// 从 ImageProvider 加载图片
+  Future<ImageInfo?> _loadImageFromProvider(ImageProvider provider, Duration timeout) async {
+    final completer = Completer<ImageInfo?>();
+    
+    final stream = provider.resolve(const ImageConfiguration());
+    late ImageStreamListener listener;
+    
+    listener = ImageStreamListener(
+      (image, synchronousCall) {
+        if (!completer.isCompleted) {
+          completer.complete(image);
+        }
+        stream.removeListener(listener);
+      },
+      onError: (exception, stackTrace) {
+        if (!completer.isCompleted) {
+          completer.complete(null);
+        }
+        stream.removeListener(listener);
+      },
+    );
+    
+    stream.addListener(listener);
+    
+    // 添加超时
+    return completer.future.timeout(
+      timeout,
+      onTimeout: () {
+        stream.removeListener(listener);
+        return null;
+      },
+    );
+  }
 }
 
 /// isolate 参数
@@ -215,10 +316,10 @@ ColorExtractionResult? _extractColorsInIsolate(_ColorExtractionParams params) {
 
         if (a < 128) continue; // 跳过透明像素
 
-        // 量化颜色以减少颜色数量
-        final quantizedR = (r ~/ 16) * 16;
-        final quantizedG = (g ~/ 16) * 16;
-        final quantizedB = (b ~/ 16) * 16;
+        // 量化颜色以减少颜色数量（使用较小的步长以提高精度）
+        final quantizedR = (r ~/ 8) * 8;
+        final quantizedG = (g ~/ 8) * 8;
+        final quantizedB = (b ~/ 8) * 8;
         final colorValue = (255 << 24) | (quantizedR << 16) | (quantizedG << 8) | quantizedB;
 
         colorCounts[colorValue] = (colorCounts[colorValue] ?? 0) + 1;

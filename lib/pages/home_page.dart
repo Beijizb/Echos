@@ -77,6 +77,7 @@ class _HomePageState extends State<HomePage>
   String? _initialSearchKeyword;
   int _lastHandledSearchRequestId = 0;
   int _forYouReloadToken = 0;
+  bool _reverseTransition = false; // 用于控制滑动动画方向
 
   @override
   bool get wantKeepAlive => true; // 保持页面状态
@@ -1229,46 +1230,13 @@ class _HomePageState extends State<HomePage>
         onClose: () {
           if (!mounted) return;
           setState(() {
+            _reverseTransition = true;
             _showSearch = false;
             _initialSearchKeyword = null;
           });
           _syncGlobalBackHandler();
         },
         initialKeyword: _initialSearchKeyword,
-      );
-    }
-
-    if (_showDailyDetail) {
-      return SafeArea(
-        child: Column(
-          children: [
-            _buildCupertinoBackHeader(context, '每日推荐', _closeDailyDetail),
-            Expanded(
-              child: DailyRecommendDetailPage(
-                tracks: _dailyTracks,
-                embedded: true,
-                onClose: _closeDailyDetail,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (_showDiscoverDetail && _discoverPlaylistId != null) {
-      return SafeArea(
-        child: Column(
-          children: [
-            _buildCupertinoBackHeader(context, '歌单详情', _closeDiscoverDetail),
-            Expanded(
-              child: PrimaryScrollController.none(
-                child: DiscoverPlaylistDetailContent(
-                  playlistId: _discoverPlaylistId!,
-                ),
-              ),
-            ),
-          ],
-        ),
       );
     }
 
@@ -1394,20 +1362,36 @@ class _HomePageState extends State<HomePage>
               HomeForYouTab(
                 key: ValueKey('for_you_$_forYouReloadToken'),
                 onOpenPlaylistDetail: (id) {
-                  setState(() {
-                    _homeTabIndex = 0;
-                    _discoverPlaylistId = id;
-                    _showDiscoverDetail = true;
-                  });
-                  _syncGlobalBackHandler();
+                  if (ThemeManager().isFluentFramework) {
+                    setState(() {
+                      _homeTabIndex = 0;
+                      _discoverPlaylistId = id;
+                      _showDiscoverDetail = true;
+                    });
+                    _syncGlobalBackHandler();
+                    return;
+                  }
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (context) => DiscoverPlaylistDetailPage(playlistId: id),
+                    ),
+                  );
                 },
                 onOpenDailyDetail: (tracks) {
-                  setState(() {
-                    _homeTabIndex = 0;
-                    _dailyTracks = tracks;
-                    _showDailyDetail = true;
-                  });
-                  _syncGlobalBackHandler();
+                  if (ThemeManager().isFluentFramework) {
+                    setState(() {
+                      _homeTabIndex = 0;
+                      _dailyTracks = tracks;
+                      _showDailyDetail = true;
+                    });
+                    _syncGlobalBackHandler();
+                    return;
+                  }
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (context) => DailyRecommendDetailPage(tracks: tracks),
+                    ),
+                  );
                 },
               ),
             ] else ...[
@@ -1482,6 +1466,7 @@ class _HomePageState extends State<HomePage>
     final isLoggedIn = await _checkLoginStatus();
     if (isLoggedIn && mounted) {
       setState(() {
+        _reverseTransition = false;
         _showSearch = true;
         _initialSearchKeyword = null;
       });
@@ -1526,10 +1511,31 @@ class _HomePageState extends State<HomePage>
     _openSearchFromExternal(request.keyword);
   }
 
+  void _closeDiscoverDetail() {
+    if (!mounted) return;
+    setState(() {
+      _reverseTransition = true;
+      _showDiscoverDetail = false;
+      _discoverPlaylistId = null;
+    });
+    _syncGlobalBackHandler();
+  }
+
+  void _closeDailyDetail() {
+    if (!mounted) return;
+    setState(() {
+      _reverseTransition = true;
+      _showDailyDetail = false;
+      _dailyTracks = const [];
+    });
+    _syncGlobalBackHandler();
+  }
+
   void _openSearchFromExternal(String? keyword) {
     if (!mounted) return;
     final normalizedKeyword = keyword?.trim();
     setState(() {
+      _reverseTransition = false;
       _initialSearchKeyword =
           (normalizedKeyword == null || normalizedKeyword.isEmpty)
           ? null
@@ -1619,54 +1625,13 @@ class _HomePageState extends State<HomePage>
         onClose: () {
           if (!mounted) return;
           setState(() {
+            _reverseTransition = true;
             _showSearch = false;
             _initialSearchKeyword = null;
           });
           _syncGlobalBackHandler();
         },
         initialKeyword: _initialSearchKeyword,
-      );
-    }
-
-    if (_showDailyDetail) {
-      return Material(
-        key: const ValueKey('material_daily_detail'),
-        color: Colors.transparent,
-        child: SafeArea(
-          child: DailyRecommendDetailPage(
-            tracks: _dailyTracks,
-            embedded: true,
-            onClose: _closeDailyDetail,
-          ),
-        ),
-      );
-    }
-
-    if (_showDiscoverDetail && _discoverPlaylistId != null) {
-      return Material(
-        key: ValueKey('material_playlist_${_discoverPlaylistId!}'),
-        color: Colors.transparent,
-        child: SafeArea(
-          child: Column(
-            children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded),
-                  onPressed: _closeDiscoverDetail,
-                  tooltip: '返回',
-                ),
-              ),
-              Expanded(
-                child: PrimaryScrollController.none(
-                  child: DiscoverPlaylistDetailContent(
-                    playlistId: _discoverPlaylistId!,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       );
     }
 
@@ -1701,17 +1666,26 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildSlideTransition(Widget child, Animation<double> animation) {
-    final isReverse = animation is ReverseAnimation;
-    final beginOffset = isReverse
-        ? const Offset(-1.0, 0.0)
-        : const Offset(1.0, 0.0);
+    // 根据 _reverseTransition 决定动画方向
+    // 只有状态为 forward 时才是新进入的组件
+    final bool isEntering = animation.status == AnimationStatus.forward;
+    
+    Offset begin;
+    if (_reverseTransition) {
+      // 退出 (Pop)：新页面从左滑入 (-1,0)，旧页面向右滑出 (1,0)
+      begin = isEntering ? const Offset(-1.0, 0.0) : const Offset(1.0, 0.0);
+    } else {
+      // 进入 (Push)：新页面从右滑入 (1,0)，旧页面向左滑出 (-1,0)
+      begin = isEntering ? const Offset(1.0, 0.0) : const Offset(-1.0, 0.0);
+    }
+
     final curvedAnimation = CurvedAnimation(
       parent: animation,
       curve: Curves.easeOutCubic,
       reverseCurve: Curves.easeInCubic,
     );
     final positionAnimation = Tween<Offset>(
-      begin: beginOffset,
+      begin: begin,
       end: Offset.zero,
     ).animate(curvedAnimation);
 
@@ -1800,7 +1774,7 @@ class _HomePageState extends State<HomePage>
           if (isLoggedIn && showTabs) ...[
             Padding(
               padding: const EdgeInsets.only(bottom: 12.0),
-              child: _HomeCapsuleTabs(
+              child: _HomeTabs(
                 tabs: const ['为你推荐', '榜单'],
                 currentIndex: _homeTabIndex,
                 onChanged: (i) => setState(() => _homeTabIndex = i),
@@ -1819,20 +1793,36 @@ class _HomePageState extends State<HomePage>
             HomeForYouTab(
               key: ValueKey('for_you_$_forYouReloadToken'),
               onOpenPlaylistDetail: (id) {
-                setState(() {
-                  _homeTabIndex = 0;
-                  _discoverPlaylistId = id;
-                  _showDiscoverDetail = true;
-                });
-                _syncGlobalBackHandler();
+                if (ThemeManager().isFluentFramework) {
+                  setState(() {
+                    _homeTabIndex = 0;
+                    _discoverPlaylistId = id;
+                    _showDiscoverDetail = true;
+                  });
+                  _syncGlobalBackHandler();
+                  return;
+                }
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => DiscoverPlaylistDetailPage(playlistId: id),
+                  ),
+                );
               },
               onOpenDailyDetail: (tracks) {
-                setState(() {
-                  _homeTabIndex = 0;
-                  _dailyTracks = tracks;
-                  _showDailyDetail = true;
-                });
-                _syncGlobalBackHandler();
+                if (ThemeManager().isFluentFramework) {
+                  setState(() {
+                    _homeTabIndex = 0;
+                    _dailyTracks = tracks;
+                    _showDailyDetail = true;
+                  });
+                  _syncGlobalBackHandler();
+                  return;
+                }
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => DailyRecommendDetailPage(tracks: tracks),
+                  ),
+                );
               },
             ),
           ] else ...[
@@ -1859,6 +1849,7 @@ class _HomePageState extends State<HomePage>
     final Color embeddedBgColor = useWindowEffect
         ? Colors.transparent
         : fluentTheme.micaBackgroundColor;
+
     if (_showDailyDetail) {
       return Container(
         key: const ValueKey('fluent_daily_detail'),
@@ -1895,6 +1886,7 @@ class _HomePageState extends State<HomePage>
           onClose: () {
             if (!mounted) return;
             setState(() {
+              _reverseTransition = true;
               _showSearch = false;
               _initialSearchKeyword = null;
             });
@@ -1982,24 +1974,6 @@ class _HomePageState extends State<HomePage>
       _homeTabIndex = index;
       _showDiscoverDetail = false;
       _discoverPlaylistId = null;
-      _showDailyDetail = false;
-      _dailyTracks = const [];
-    });
-    _syncGlobalBackHandler();
-  }
-
-  void _closeDiscoverDetail() {
-    if (!mounted) return;
-    setState(() {
-      _showDiscoverDetail = false;
-      _discoverPlaylistId = null;
-    });
-    _syncGlobalBackHandler();
-  }
-
-  void _closeDailyDetail() {
-    if (!mounted) return;
-    setState(() {
       _showDailyDetail = false;
       _dailyTracks = const [];
     });
@@ -2157,14 +2131,14 @@ class _HomePageState extends State<HomePage>
   }
 }
 
-/// 首页顶部胶囊 Tabs（参考歌手详情页样式）
+/// 首页顶部 Tabs
 /// Fluent UI 主题下使用 Win11 Pivot 风格（下划线指示器）
-/// Material Design 主题下使用胶囊滑动样式
-class _HomeCapsuleTabs extends StatelessWidget {
+/// Material Design 主题下使用 Android 16 Expressive 风格（大标题 + 开阔布局）
+class _HomeTabs extends StatelessWidget {
   final List<String> tabs;
   final int currentIndex;
   final ValueChanged<int> onChanged;
-  const _HomeCapsuleTabs({
+  const _HomeTabs({
     required this.tabs,
     required this.currentIndex,
     required this.onChanged,
@@ -2179,8 +2153,8 @@ class _HomeCapsuleTabs extends StatelessWidget {
       return _buildFluentPivotTabs(context);
     }
     
-    // Material Design / iOS 主题使用胶囊滑动样式
-    return _buildCapsuleTabs(context);
+    // Material Design / Android 16 Expressive 风格
+    return _buildMaterialExpressiveTabs(context);
   }
   
   /// Win11 风格的 Pivot Tab 栏
@@ -2216,80 +2190,60 @@ class _HomeCapsuleTabs extends StatelessWidget {
     );
   }
   
-  /// Material Design / iOS 胶囊滑动样式
-  Widget _buildCapsuleTabs(BuildContext context) {
+  /// Android 16 / Material Expressive 风格 - 摆脱胶囊形态，更开阔的表现力
+  Widget _buildMaterialExpressiveTabs(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final bg = cs.surfaceContainerHighest;
-    final pillColor = cs.primary;
-    final selFg = cs.onPrimary;
-    final unSelFg = cs.onSurfaceVariant;
+    final selectedColor = cs.primary;
+    final unselectedColor = cs.onSurface.withOpacity(0.7);
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final height = 48.0;
-        final padding = 5.0;
-        final radius = height / 2;
-        final totalWidth = constraints.maxWidth;
+        const height = 60.0;
         final count = tabs.length;
-        final tabWidth = totalWidth / count;
+        // 在开阔布局下，我们不再固定宽度，而是根据内容自适应或平均分配
+        final tabWidth = constraints.maxWidth / count;
 
         return SizedBox(
           height: height,
           child: Stack(
             children: [
-              // 背景容器
-              Positioned.fill(
+              // 底部指示器 - 采用厚度适中的圆角长条，带弹性滑动
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.elasticOut,
+                bottom: 4,
+                left: currentIndex * tabWidth + (tabWidth - 28) / 2, // 居中且宽度固定为28
+                width: 28,
+                height: 4,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: bg,
-                    borderRadius: BorderRadius.circular(radius),
+                    color: selectedColor,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
-              // 滑动胶囊指示器
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 280),
-                curve: Curves.easeInOutCubic,
-                top: padding,
-                bottom: padding,
-                left: padding + currentIndex * (tabWidth - padding * 2),
-                width: tabWidth - padding * 2,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 280),
-                  curve: Curves.easeInOutCubic,
-                  decoration: BoxDecoration(
-                    color: pillColor,
-                    borderRadius: BorderRadius.circular(radius - padding),
-                    boxShadow: [
-                      BoxShadow(
-                        color: pillColor.withOpacity(0.25),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              // 标签点击与文字
+              // 标签点击与表现力文字
               Row(
                 children: List.generate(count, (i) {
                   final selected = i == currentIndex;
-                  return SizedBox(
-                    width: tabWidth,
-                    height: height,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(radius),
-                      onTap: () => onChanged(i),
-                      child: Center(
-                        child: AnimatedDefaultTextStyle(
-                          duration: const Duration(milliseconds: 180),
-                          curve: Curves.easeInOut,
-                          style: TextStyle(
-                            color: selected ? selFg : unSelFg,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          child: Text(tabs[i]),
+                  return InkWell(
+                    onTap: () => onChanged(i),
+                    splashColor: Colors.transparent,
+                    highlightColor: Colors.transparent,
+                    child: Container(
+                      width: tabWidth,
+                      alignment: Alignment.center,
+                      child: AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOutBack,
+                        style: TextStyle(
+                          color: selected ? cs.onSurface : unselectedColor,
+                          fontSize: selected ? 22 : 18,
+                          fontWeight: selected ? FontWeight.w900 : FontWeight.w600,
+                          letterSpacing: selected ? -0.5 : 0,
+                          fontFamily: 'Microsoft YaHei',
                         ),
+                        child: Text(tabs[i]),
                       ),
                     ),
                   );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 import '../../services/player_service.dart';
 import '../../services/playlist_queue_service.dart';
@@ -131,7 +132,7 @@ class DailyRecommendDetailPage extends StatelessWidget {
 
           // 独立页面模式
           return Scaffold(
-            backgroundColor: Colors.transparent,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             body: CustomScrollView(
               slivers: [
                 SliverAppBar(
@@ -142,6 +143,14 @@ class DailyRecommendDetailPage extends StatelessWidget {
                   surfaceTintColor: Colors.transparent,
                   elevation: 0,
                   scrolledUnderElevation: 0,
+                  systemOverlayStyle: SystemUiOverlayStyle(
+                    statusBarColor: Colors.transparent,
+                    statusBarIconBrightness:
+                        Theme.of(context).brightness == Brightness.dark
+                            ? Brightness.light
+                            : Brightness.dark,
+                    statusBarBrightness: Theme.of(context).brightness,
+                  ),
                   leading: IconButton(
                     icon: const Icon(Icons.arrow_back),
                     onPressed: () {
@@ -158,57 +167,13 @@ class DailyRecommendDetailPage extends StatelessWidget {
                       bottom: 16,
                       right: 16,
                     ),
-                    title: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '首页',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: colorScheme.onSurface.withOpacity(0.6),
-                              ),
-                            ),
-                            Icon(
-                              Icons.chevron_right,
-                              size: 14,
-                              color: colorScheme.onSurface.withOpacity(0.6),
-                            ),
-                            Text(
-                              '为你推荐',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: colorScheme.onSurface.withOpacity(0.6),
-                              ),
-                            ),
-                            Icon(
-                              Icons.chevron_right,
-                              size: 14,
-                              color: colorScheme.onSurface.withOpacity(0.6),
-                            ),
-                            Text(
-                              '每日推荐',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: colorScheme.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '每日推荐',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                      ],
+                    title: Text(
+                      '每日推荐',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
                     ),
                   ),
                   actions: [

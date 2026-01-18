@@ -17,6 +17,7 @@ import 'settings_page/third_party_accounts.dart';
 import 'settings_page/appearance_settings.dart';
 import 'settings_page/lyric_settings.dart';
 import 'settings_page/playback_settings.dart';
+import 'settings_page/search_settings.dart';
 import 'settings_page/network_settings.dart';
 import 'settings_page/storage_settings.dart';
 import 'settings_page/about_settings.dart';
@@ -313,39 +314,43 @@ class _SettingsPageState extends State<SettingsPage> {
             : KeyedSubtree(
                 key: const ValueKey('main_settings'),
                 child: ListView(
-                  padding: const EdgeInsets.all(24.0),
+                  padding: const EdgeInsets.symmetric(vertical: 24.0),
                   children: [
                     // 用户卡片（需随登录状态刷新，不能使用 const）
                     UserCard(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 12),
                     
                     // 第三方账号管理（需随登录状态刷新，不能使用 const）
                     ThirdPartyAccounts(onTap: () => openSubPage(SettingsSubPage.thirdPartyAccounts)),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 12),
                     
                     // 外观设置
                     AppearanceSettings(onTap: () => openSubPage(SettingsSubPage.appearance)),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 12),
                     
                     // 歌词设置（仅 Windows 和 Android 平台显示）
                     LyricSettings(onTap: () => openSubPage(SettingsSubPage.lyric)),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 12),
                     
                     // 播放设置
                     const PlaybackSettings(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 12),
+                    
+                    // 搜索设置
+                    const SearchSettings(),
+                    const SizedBox(height: 12),
                     
                     // 网络设置
                     NetworkSettings(onAudioSourceTap: () => openSubPage(SettingsSubPage.audioSource)),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 12),
                     
                     // 存储设置
                     const StorageSettings(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 12),
                     
                     // 关于
                     const AboutSettings(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 12),
                     const SizedBox(height: 40),
                   ],
                 ),
@@ -481,6 +486,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 header: '播放',
                 children: const [
                   PlaybackSettings(),
+                  SearchSettings(),
                 ],
               ),
               
@@ -751,6 +757,10 @@ class _SettingsPageState extends State<SettingsPage> {
                     
                     // 播放设置
                     const PlaybackSettings(),
+                    const SizedBox(height: 16),
+                    
+                    // 搜索设置
+                    const SearchSettings(),
                     const SizedBox(height: 16),
                     
                     // 网络设置

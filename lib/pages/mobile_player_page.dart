@@ -14,6 +14,7 @@ import 'mobile_player_components/mobile_player_controls.dart';
 import 'mobile_player_components/mobile_player_control_center.dart';
 import 'mobile_player_components/mobile_player_karaoke_lyric.dart';
 import 'mobile_player_components/mobile_player_fluid_cloud_layout.dart';
+import 'mobile_player_components/mobile_player_classic_layout.dart';
 import 'mobile_player_components/mobile_player_dialogs.dart';
 import '../../services/lyric_style_service.dart';
 
@@ -82,12 +83,14 @@ class _MobilePlayerPageState extends State<MobilePlayerPage> with TickerProvider
   /// 设置监听器
   void _setupListeners() {
     PlayerService().addListener(_onPlayerStateChanged);
+    PlayerService().positionNotifier.addListener(_onPositionChanged);
     LyricStyleService().addListener(_onLyricStyleChanged);
   }
 
   /// 移除监听器
   void _removeListeners() {
     PlayerService().removeListener(_onPlayerStateChanged);
+    PlayerService().positionNotifier.removeListener(_onPositionChanged);
     LyricStyleService().removeListener(_onLyricStyleChanged);
   }
 
@@ -132,9 +135,15 @@ class _MobilePlayerPageState extends State<MobilePlayerPage> with TickerProvider
           _loadLyrics();
       setState(() {}); // 触发重建以更新UI
     } else {
-      // 只更新歌词行索引，不触发整页重建
-      _updateCurrentLyric();
+      // 这里的全局通知不再包含进度变化，主要是为了捕获除了切歌以外的状态变更（如暂停/恢复）
+      if (mounted) setState(() {}); 
     }
+  }
+
+  /// 进度变化回调（高频，仅由 positionNotifier 触发）
+  void _onPositionChanged() {
+    if (!mounted) return;
+    _updateCurrentLyric();
   }
 
   /// 加载歌词（异步执行，不阻塞 UI）
@@ -313,18 +322,9 @@ class _MobilePlayerPageState extends State<MobilePlayerPage> with TickerProvider
     return MobilePlayerFluidCloudLayout(
       lyrics: _lyrics,
       currentLyricIndex: _currentLyricIndex,
-      showTranslation: _showTranslation && _shouldShowTranslationButton(),
+      showTranslation: true,
       onBackPressed: () => Navigator.pop(context),
       onPlaylistPressed: () => MobilePlayerDialogs.showPlaylistBottomSheet(context),
-      onTranslationToggle: () {
-        setState(() => _showTranslation = !_showTranslation);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_showTranslation ? '已显示译文' : '已隐藏译文'),
-            duration: const Duration(seconds: 1),
-          ),
-        );
-      },
     );
   }
 
@@ -348,7 +348,7 @@ class _MobilePlayerPageState extends State<MobilePlayerPage> with TickerProvider
       return AnnotatedRegion<SystemUiOverlayStyle>(
         value: playerOverlayStyle,
         child: Scaffold(
-          backgroundColor: Colors.black,
+          backgroundColor: Colors.transparent,
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
@@ -373,122 +373,24 @@ class _MobilePlayerPageState extends State<MobilePlayerPage> with TickerProvider
     final scaffoldWidget = AnnotatedRegion<SystemUiOverlayStyle>(
       value: playerOverlayStyle,
       child: Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.transparent,
       body: Stack(
             children: [
-              // 背景层
-          const MobilePlayerBackground(),
-              
-              // 内容层
-          SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-                        final showCover = !backgroundService.enableGradient || 
-                                        backgroundService.backgroundType != PlayerBackgroundType.adaptive;
-                        
-                        // 流体云布局（动态背景模式 或 歌词样式为流体云）
-                        if (useFluidCloudLayout) {
-                          return _buildAppleMusicStyleLayout(context, constraints);
-                        }
-                        
-                        // 原有布局
-                          return Column(
-                            children: [
-                    // 顶部栏
-                    MobilePlayerAppBar(
-                      onBackPressed: () => Navigator.pop(context),
-                    ),
-                    
-                    // 主要内容区域 - 包含专辑封面、歌曲信息和歌词
-            Expanded(
-          child: Column(
-            children: [
-                          // 专辑封面和歌曲信息区域 (占 75% 空间)
-                          Expanded(
-                            flex: 75,
-                            child: MobilePlayerSongInfo(showCover: showCover),
-                          ),
-                          
-                          // 歌词区域 (大幅度上移，占 25% 空间)
-                          Expanded(
-                            flex: 25,
-                            child: Transform.translate(
-                              offset: const Offset(0, -80), // 向上移动80像素（增加上移幅度）
-                              child: Align(
-                                alignment: Alignment.center,
-                                child: MobilePlayerKaraokeLyric(
-                                  lyrics: _lyrics,
-                                  currentLyricIndex: _currentLyricIndex,
-                                  onTap: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const MobileLyricPage(),
-                                    ),
-                                  ),
-                                  showTranslation: _showTranslation && _shouldShowTranslationButton(),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    // 底部控制区域 + 左下角译文开关
-                    Stack(
-                      children: [
-                        MobilePlayerControls(
-                          onPlaylistPressed: () => MobilePlayerDialogs.showPlaylistBottomSheet(context),
-                          onSleepTimerPressed: () => MobilePlayerDialogs.showSleepTimer(context),
-                          onVolumeControlPressed: _toggleControlCenter,
-                          onAddToPlaylistPressed: (track) => MobilePlayerDialogs.showAddToPlaylist(context, track),
-                        ),
-                        if (_shouldShowTranslationButton())
-                          Positioned(
-                          left: 12,
-                          bottom: 12,
-                          child: Tooltip(
-                            message: _showTranslation ? '隐藏译文' : '显示译文',
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(6),
-                              onTap: () {
-                                setState(() => _showTranslation = !_showTranslation);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(_showTranslation ? '已显示译文' : '已隐藏译文'),
-                                    duration: const Duration(seconds: 1),
-                                  ),
-                                );
-                              },
-                              child: Container(
-                                width: 30,
-                                height: 30,
-                                decoration: BoxDecoration(
-                                  color: _showTranslation ? Colors.white.withOpacity(0.2) : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: const Center(
-                                  child: Text(
-                                    '译',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      fontFamily: 'Microsoft YaHei',
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+              // 流体云布局模式：完全接管背景和 Safe Area
+              if (useFluidCloudLayout)
+                _buildAppleMusicStyleLayout(context, const BoxConstraints())
+              else ...[
+                // 标准布局模式：原有背景 + Safe Area
+                const MobilePlayerBackground(),
+                SafeArea(
+                  child: MobilePlayerClassicLayout(
+                    lyrics: _lyrics,
+                    currentLyricIndex: _currentLyricIndex,
+                    onBackPressed: () => Navigator.pop(context),
+                    onPlaylistPressed: () => MobilePlayerDialogs.showPlaylistBottomSheet(context),
+                  ),
+                ),
               ],
-            );
-          },
-            ),
-          ),
 
           // 控制中心面板
           MobilePlayerControlCenter(
