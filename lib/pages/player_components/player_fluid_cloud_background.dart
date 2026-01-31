@@ -7,6 +7,7 @@ import '../../services/player_service.dart';
 import '../../services/color_extraction_service.dart';
 import '../../widgets/video_background_player.dart';
 import '../../widgets/mesh_gradient_background.dart';
+import '../../widgets/flowing_light_background.dart';
 
 /// 动态背景颜色缓存管理器（全局单例）
 /// 现在使用 ColorExtractionService 的缓存，这里只保留接口兼容
@@ -69,7 +70,7 @@ class _PlayerFluidCloudBackgroundState extends State<PlayerFluidCloudBackground>
     if (mounted && PlayerBackgroundService().backgroundType == PlayerBackgroundType.dynamic) {
       // 尝试调度颜色提取
       // _scheduleColorExtraction 内部会处理去重，避免频繁的进度更新导致重复计算
-      _scheduleColorExtraction();
+      // _scheduleColorExtraction();
     }
   }
 
@@ -77,7 +78,7 @@ class _PlayerFluidCloudBackgroundState extends State<PlayerFluidCloudBackground>
     if (mounted) {
       setState(() {});
       if (PlayerBackgroundService().backgroundType == PlayerBackgroundType.dynamic) {
-        _scheduleColorExtraction();
+      // _scheduleColorExtraction();
       }
     }
   }
@@ -175,7 +176,7 @@ class _PlayerFluidCloudBackgroundState extends State<PlayerFluidCloudBackground>
     if (_isFirstBuild) {
       _isFirstBuild = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scheduleColorExtraction();
+      // _scheduleColorExtraction();
       });
     }
     return _buildBackground();
@@ -213,14 +214,33 @@ class _PlayerFluidCloudBackgroundState extends State<PlayerFluidCloudBackground>
     }
   }
 
-  /// 构建动态背景
+  /// 构建动态背景（新版流体云效果）
   Widget _buildDynamicBackground(Color greyColor) {
+    // 获取当前封面图片的 Provider
+    final player = PlayerService();
+    // 优先使用缓存的 Provider
+    ImageProvider? imageProvider = player.currentCoverImageProvider;
+    
+    // 如果没有 Provider，尝试从 URL 构建
+    if (imageProvider == null) {
+        final song = player.currentSong;
+        final track = player.currentTrack;
+        final imageUrl = song?.pic ?? track?.picUrl;
+        
+        if (imageUrl != null && imageUrl.isNotEmpty) {
+           if (imageUrl.startsWith('http')) {
+             imageProvider = CachedNetworkImageProvider(imageUrl);
+           } else {
+             imageProvider = FileImage(File(imageUrl));
+           }
+        }
+    }
+
     return RepaintBoundary(
-      child: MeshGradientBackground(
-        colors: _dynamicColors,
-        speed: 0.35,
-        backgroundColor: _dynamicColors.isNotEmpty ? _dynamicColors[0] : greyColor,
-        animate: true,
+      child: FlowingLightBackground(
+        imageProvider: imageProvider,
+        // 如果没有图片，可以用纯色兜底，但在 FlowingLightBackground 内部处理了 null
+        child: Container(color: Colors.black.withOpacity(0.2)), // 叠加一层淡黑遮罩确保文字可读性
       ),
     );
   }
