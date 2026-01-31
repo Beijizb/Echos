@@ -84,14 +84,12 @@ class SystemMediaService {
       // 这样可以避免 Android 12+ 的 ForegroundServiceStartNotAllowedException
       _audioHandler = await AudioService.init(
         builder: () => CyreneAudioHandler(),
-        config: const AudioServiceConfig(
+        config: AudioServiceConfig(
           androidNotificationChannelId: 'com.cyrene.music.channel.audio',
           androidNotificationChannelName: 'Cyrene Music',
-          androidNotificationOngoing: false,  // 必须为 false（配合 androidStopForegroundOnPause = false）
-          // 不设置 androidNotificationIcon，使用 audio_service 的默认图标（避免黑色方块）
-          // 如果需要自定义图标，需要在 drawable 目录创建单色透明背景的图标
+          androidNotificationOngoing: false, // 恢复为 false 以符合 audio_service 的断言限制 (androidStopForegroundOnPause 为 false 时必须为 false)
           androidShowNotificationBadge: true,
-          androidStopForegroundOnPause: false,  // 保持服务在前台，避免 Android 12+ 重启问题
+          androidStopForegroundOnPause: false, // 保持核心逻辑：暂停时不停止前台服务，确保应用在 Android 12+ 后台存活
         ),
       ) as CyreneAudioHandler;
       

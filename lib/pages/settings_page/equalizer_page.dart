@@ -35,21 +35,208 @@ class _EqualizerPageState extends State<EqualizerPage> {
   }
 
   Widget _buildMaterialPage() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
+      backgroundColor: colorScheme.surfaceContainerLow,
       appBar: AppBar(
-        title: const Text('均衡器'),
-        actions: [
-          Switch(
-            value: PlayerService().equalizerEnabled,
-            onChanged: (value) {
-              PlayerService().setEqualizerEnabled(value);
-              setState(() {});
-            },
+        title: Text(
+          '均衡器',
+          style: TextStyle(
+            color: colorScheme.onSurface,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
           ),
-          const SizedBox(width: 16),
+        ),
+        backgroundColor: colorScheme.surfaceContainerLow,
+        surfaceTintColor: Colors.transparent,
+        actions: [
+          Transform.scale(
+            scale: 0.8,
+            child: Switch(
+              value: PlayerService().equalizerEnabled,
+              onChanged: (value) {
+                PlayerService().setEqualizerEnabled(value);
+                setState(() {});
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
         ],
       ),
-      body: _buildBody(context),
+      body: _buildMaterialBody(context),
+    );
+  }
+
+  Widget _buildMaterialBody(BuildContext context) {
+    final playerService = PlayerService();
+    final cs = Theme.of(context).colorScheme;
+
+    return ListenableBuilder(
+      listenable: playerService,
+      builder: (context, _) {
+        final gains = playerService.equalizerGains;
+        final enabled = playerService.equalizerEnabled;
+
+        return Column(
+          children: [
+            // 预设选择
+            SizedBox(
+              height: 64,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                itemCount: _presets.length,
+                itemBuilder: (context, index) {
+                  final name = _presets.keys.elementAt(index);
+                  final presetGains = _presets[name]!;
+
+                  bool isSelected = true;
+                  for (int i = 0; i < 10; i++) {
+                    if ((gains[i] - presetGains[i]).abs() > 0.1) {
+                      isSelected = false;
+                      break;
+                    }
+                  }
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: FilterChip(
+                      label: Text(name),
+                      selected: isSelected,
+                      onSelected: enabled
+                          ? (selected) {
+                              if (selected) {
+                                playerService.updateEqualizer(presetGains);
+                              }
+                            }
+                          : null,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      side: BorderSide.none,
+                      backgroundColor: cs.surfaceContainerHigh,
+                      selectedColor: cs.primaryContainer,
+                      labelStyle: TextStyle(
+                        color: isSelected ? cs.onPrimaryContainer : cs.onSurfaceVariant,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                      showCheckmark: false,
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            // 均衡器推子区域
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(32),
+                ),
+                child: Opacity(
+                  opacity: enabled ? 1.0 : 0.4,
+                  child: AbsorbPointer(
+                    absorbing: !enabled,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final width = constraints.maxWidth / 10;
+
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: List.generate(10, (index) {
+                            final freq = PlayerService.kEqualizerFrequencies[index];
+                            final gain = gains[index];
+
+                            String freqLabel;
+                            if (freq >= 1000) {
+                              freqLabel = '${freq ~/ 1000}k';
+                            } else {
+                              freqLabel = '$freq';
+                            }
+
+                            return SizedBox(
+                              width: width,
+                              child: Column(
+                                children: [
+                                  // 增益值显示
+                                  Text(
+                                    '${gain > 0 ? "+" : ""}${gain.toStringAsFixed(1)}',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: cs.primary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                  // 垂直滑块
+                                  Expanded(
+                                    child: RotatedBox(
+                                      quarterTurns: 3,
+                                      child: SliderTheme(
+                                        data: SliderTheme.of(context).copyWith(
+                                          trackHeight: 24,
+                                          trackShape: const _SplitCapsuleSliderTrackShape(),
+                                          thumbShape: const _LineSliderThumbShape(),
+                                          overlayShape: SliderComponentShape.noOverlay,
+                                          activeTrackColor: cs.primary,
+                                          inactiveTrackColor: cs.surfaceContainerHighest,
+                                          thumbColor: cs.primary,
+                                        ),
+                                        child: Slider(
+                                          value: gain,
+                                          min: -12.0,
+                                          max: 12.0,
+                                          onChanged: (value) {
+                                            final newGains = List<double>.from(gains);
+                                            newGains[index] = value;
+                                            playerService.updateEqualizer(newGains);
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 12),
+                                  // 频率标签
+                                  Text(
+                                    freqLabel,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w900,
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // 底部提示
+            Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: Text(
+                '提示：调节过大可能会导致失真',
+                style: TextStyle(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -228,5 +415,137 @@ class _EqualizerPageState extends State<EqualizerPage> {
         );
       },
     );
+  }
+}
+
+class _SplitCapsuleSliderTrackShape extends SliderTrackShape with BaseSliderTrackShape {
+  const _SplitCapsuleSliderTrackShape();
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset offset, {
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required Animation<double> enableAnimation,
+    required TextDirection textDirection,
+    required Offset thumbCenter,
+    Offset? secondaryOffset,
+    bool isDiscrete = false,
+    bool isEnabled = false,
+    double additionalActiveTrackHeight = 0,
+  }) {
+    if (sliderTheme.trackHeight == null || sliderTheme.trackHeight! <= 0) return;
+
+    final ColorTween activeTrackColorTween = ColorTween(
+      begin: sliderTheme.disabledActiveTrackColor,
+      end: sliderTheme.activeTrackColor,
+    );
+    final ColorTween inactiveTrackColorTween = ColorTween(
+      begin: sliderTheme.disabledInactiveTrackColor,
+      end: sliderTheme.inactiveTrackColor,
+    );
+    final Paint activePaint = Paint()
+      ..color = activeTrackColorTween.evaluate(enableAnimation)!;
+    final Paint inactivePaint = Paint()
+      ..color = inactiveTrackColorTween.evaluate(enableAnimation)!;
+
+    final Rect trackRect = getPreferredRect(
+      parentBox: parentBox,
+      offset: offset,
+      sliderTheme: sliderTheme,
+      isEnabled: isEnabled,
+      isDiscrete: isDiscrete,
+    );
+
+    const double gapHeight = 4.5; // 间隙大小
+
+    // 绘制活跃部分 (左侧/底部)
+    final Rect leftTrackRect = Rect.fromLTRB(
+      trackRect.left,
+      trackRect.top,
+      thumbCenter.dx - gapHeight,
+      trackRect.bottom,
+    );
+    
+    if (leftTrackRect.width > 0) {
+      context.canvas.drawRRect(
+        RRect.fromLTRBAndCorners(
+          leftTrackRect.left,
+          leftTrackRect.top,
+          leftTrackRect.right,
+          leftTrackRect.bottom,
+          topLeft: Radius.circular(trackRect.height / 2),
+          bottomLeft: Radius.circular(trackRect.height / 2),
+          topRight: const Radius.circular(3.0), // 近直角
+          bottomRight: const Radius.circular(3.0), // 近直角
+        ),
+        activePaint,
+      );
+    }
+
+    // 绘制非活跃部分 (右侧/顶部)
+    final Rect rightTrackRect = Rect.fromLTRB(
+      thumbCenter.dx + gapHeight,
+      trackRect.top,
+      trackRect.right,
+      trackRect.bottom,
+    );
+    
+    if (rightTrackRect.width > 0) {
+      context.canvas.drawRRect(
+        RRect.fromLTRBAndCorners(
+          rightTrackRect.left,
+          rightTrackRect.top,
+          rightTrackRect.right,
+          rightTrackRect.bottom,
+          topLeft: const Radius.circular(3.0), // 近直角
+          bottomLeft: const Radius.circular(3.0), // 近直角
+          topRight: Radius.circular(trackRect.height / 2),
+          bottomRight: Radius.circular(trackRect.height / 2),
+        ),
+        inactivePaint,
+      );
+    }
+  }
+}
+
+class _LineSliderThumbShape extends SliderComponentShape {
+  const _LineSliderThumbShape();
+
+  @override
+  Size getPreferredSize(bool isEnabled, bool isDiscrete) => const Size(8, 28);
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset center, {
+    required Animation<double> activationAnimation,
+    required Animation<double> enableAnimation,
+    required bool isDiscrete,
+    required TextPainter labelPainter,
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required TextDirection textDirection,
+    required double value,
+    required double textScaleFactor,
+    required Size sizeWithOverflow,
+  }) {
+    final Canvas canvas = context.canvas;
+    
+    final Paint paint = Paint()
+      ..color = sliderTheme.thumbColor ?? Colors.blue
+      ..style = PaintingStyle.fill;
+
+    // 滑块在激活时（拖动时）变细：从 4.0 变为 2.0
+    final double currentWidth = 4.0 - (2.0 * activationAnimation.value);
+
+    // 绘制一个圆角横滑块
+    final RRect line = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: center, width: currentWidth, height: 28.0),
+      Radius.circular(currentWidth / 2),
+    );
+    
+    canvas.drawRRect(line, paint);
   }
 }

@@ -266,8 +266,27 @@ class AudioQualityService extends ChangeNotifier {
       }
     }
     
-    print('❌ [AudioQualityService] QQ音乐无可用音质');
+  print('❌ [AudioQualityService] QQ音乐无可用音质');
     return null;
+  }
+
+  /// 根据音质/级别字符串获取文件后缀
+  static String getExtensionFromLevel(String? level) {
+    if (level == null || level.isEmpty) return 'mp3';
+    
+    // 尝试直接通过字符串特征判断（更鲁棒，因为 level 可能包含多种格式）
+    final lowerLevel = level.toLowerCase();
+    if (lowerLevel.contains('flac') || lowerLevel.contains('hires') || lowerLevel.contains('lossless')) {
+      return 'flac';
+    }
+    
+    // 尝试通过枚举转换
+    final quality = stringToQuality(level);
+    if (quality != null) {
+      return quality.extension;
+    }
+    
+    return 'mp3';
   }
 }
 

@@ -36,6 +36,7 @@ import 'persistent_storage_service.dart';
 import 'dart:async' as async_lib;
 import 'dart:async' show TimeoutException;
 import '../utils/toast_utils.dart';
+import '../utils/metadata_reader.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 
@@ -556,7 +557,17 @@ class PlayerService extends ChangeNotifier {
         }
 
         // 从本地服务取歌词
-        final lyricText = LocalLibraryService().getLyricByTrackId(filePath);
+        var lyricText = LocalLibraryService().getLyricByTrackId(filePath);
+
+        // 如果 LocalLibrary 没有该文件歌词（可能是外部 Pick 的），尝试实时解析
+        if (lyricText.isEmpty) {
+          print('🔍 [PlayerService] 本地库未找到歌词，尝试从文件实时提取...');
+          final embeddedLyric = await MetadataReader.extractLyrics(filePath);
+          if (embeddedLyric != null && embeddedLyric.isNotEmpty) {
+            lyricText = embeddedLyric;
+            print('✅ [PlayerService] 实时提取内嵌歌词成功');
+          }
+        }
 
         _currentSong = SongDetail(
           id: filePath,
@@ -767,7 +778,7 @@ class PlayerService extends ChangeNotifier {
             print('⚠️ [PlayerService] 流式播放失败，尝试下载后播放: $playError');
             DeveloperModeService().addLog('⚠️ [PlayerService] 流式播放失败: $playError');
             DeveloperModeService().addLog('🔄 [PlayerService] 回退到下载后播放');
-            final tempFilePath = await _downloadViaProxyAndPlay(serverProxyUrl, songDetail.name);
+            final tempFilePath = await _downloadViaProxyAndPlay(serverProxyUrl, songDetail.name, songDetail.level);
             if (tempFilePath != null) {
               _currentTempFilePath = tempFilePath;
             }
@@ -911,15 +922,16 @@ class PlayerService extends ChangeNotifier {
   }
 
   /// 通过服务器代理下载音频并播放（用于移动端 QQ 音乐和酷狗音乐）
-  Future<String?> _downloadViaProxyAndPlay(String proxyUrl, String songName) async {
+  Future<String?> _downloadViaProxyAndPlay(String proxyUrl, String songName, [String? level]) async {
     try {
-      print('📥 [PlayerService] 通过服务器代理下载: $songName');
+      print('📥 [PlayerService] 通过服务器代理下载: $songName (音质: $level)');
       DeveloperModeService().addLog('📥 [PlayerService] 通过服务器代理下载: $songName');
       
       // 获取临时目录
       final tempDir = await getTemporaryDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final tempFilePath = '${tempDir.path}/temp_audio_$timestamp.mp3';
+      final extension = AudioQualityService.getExtensionFromLevel(level);
+      final tempFilePath = '${tempDir.path}/temp_audio_$timestamp.$extension';
       
       // 通过服务器代理下载（服务器已经处理了 referer 等请求头）
       final response = await http.get(Uri.parse(proxyUrl));
@@ -1075,13 +1087,14 @@ class PlayerService extends ChangeNotifier {
   /// 下载音频文件并播放（用于QQ音乐和酷狗音乐）
   Future<String?> _downloadAndPlay(SongDetail songDetail) async {
     try {
-      print('📥 [PlayerService] 开始下载音频: ${songDetail.name}');
+      print('📥 [PlayerService] 开始下载音频: ${songDetail.name} (音质: ${songDetail.level})');
       DeveloperModeService().addLog('📥 [PlayerService] 开始下载音频: ${songDetail.name}');
       
       // 获取临时目录
       final tempDir = await getTemporaryDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final tempFilePath = '${tempDir.path}/temp_audio_$timestamp.mp3';
+      final extension = AudioQualityService.getExtensionFromLevel(songDetail.level);
+      final tempFilePath = '${tempDir.path}/temp_audio_$timestamp.$extension';
       
       // 设置请求头（QQ音乐需要 referer）
       final headers = <String, String>{
@@ -1598,6 +1611,23 @@ class PlayerService extends ChangeNotifier {
         ready: null,
       ),
     );
+
+    // 🔧 性能优化：针对 Android 后台播放优化缓冲策略
+    if (Platform.isAndroid) {
+      try {
+        // 设置音频缓冲区大小（秒），默认通常很小
+        await (_mediaKitPlayer!.platform as dynamic)?.setProperty('audio-buffer', '10.0');
+        // 开启缓存并设置缓冲区大小 (10MB)
+        await (_mediaKitPlayer!.platform as dynamic)?.setProperty('cache', 'yes');
+        await (_mediaKitPlayer!.platform as dynamic)?.setProperty('demuxer-max-bytes', '10485760');
+        await (_mediaKitPlayer!.platform as dynamic)?.setProperty('demuxer-max-back-bytes', '5242880');
+        // 设置预读时长
+        await (_mediaKitPlayer!.platform as dynamic)?.setProperty('demuxer-readahead-secs', '30');
+        print('🚀 [PlayerService] MediaKit Android 后台优化参数已应用');
+      } catch (e) {
+        print('⚠️ [PlayerService] MediaKit 优化参数应用失败: $e');
+      }
+    }
     
     // 初始化完成后应用均衡器
     await _applyEqualizer();
