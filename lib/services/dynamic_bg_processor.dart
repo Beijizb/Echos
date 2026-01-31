@@ -137,6 +137,101 @@ class DynamicBgProcessor {
     return finalImage;
   }
 
+  /// Processes the input image for Desktop (Closer to original Kotlin implementation values)
+  static Future<ui.Image> processImageDesktop(ui.Image inputImage) async {
+    // 1. Initial Scale (Small) & Blur
+    // Kotlin: zoom(150f) -> blur(25F) -> Sigma ~12
+    const double initialWidth = 150.0;
+    final double initialHeight = (inputImage.height * initialWidth / inputImage.width);
+    
+    var tempImage = await _drawToImage(
+      (canvas) {
+        final paint = Paint()
+          ..filterQuality = FilterQuality.medium
+          ..imageFilter = ui.ImageFilter.blur(sigmaX: 12.0, sigmaY: 12.0); // radius 25 ~= sigma 12
+        
+        canvas.drawImageRect(
+          inputImage,
+          Rect.fromLTWH(0, 0, inputImage.width.toDouble(), inputImage.height.toDouble()),
+          Rect.fromLTWH(0, 0, initialWidth, initialHeight),
+          paint,
+        );
+      },
+      Size(initialWidth, initialHeight),
+    );
+
+    // Step 2: Mesh Warp
+    tempImage = await _applyMesh(tempImage, _meshFloats);
+
+    // Step 3: Scale Up (Zoom to Landscape 16:9 for Desktop)
+    // Changing from square 1000x1000 to 1280x720 to prevent vertical cropping on wide screens
+    const double targetWidth = 1280.0;
+    const double targetHeight = 720.0;
+    
+    tempImage = await _drawToImage(
+      (canvas) {
+        canvas.drawImageRect(
+          tempImage,
+          Rect.fromLTWH(0, 0, tempImage.width.toDouble(), tempImage.height.toDouble()),
+          Rect.fromLTWH(0, 0, targetWidth, targetHeight),
+          Paint()..filterQuality = FilterQuality.low, 
+        );
+      },
+      Size(targetWidth, targetHeight),
+    );
+
+    // Step 4: Mesh Warp again
+    tempImage = await _applyMesh(tempImage, _meshFloats);
+
+    // Step 5: Final Blur & Saturation & Brightness Check
+    // Kotlin: blur(12F) -> Sigma ~6
+    final finalImage = await _drawToImage(
+      (canvas) {
+        final paint = Paint();
+        
+        // Blur
+        paint.imageFilter = ui.ImageFilter.blur(sigmaX: 6.0, sigmaY: 6.0);
+        
+        // Saturation 1.8
+        final matrix = _saturationMatrix(1.8);
+        paint.colorFilter = ColorFilter.matrix(matrix);
+
+        canvas.drawImageRect(
+          tempImage,
+          Rect.fromLTWH(0, 0, tempImage.width.toDouble(), tempImage.height.toDouble()),
+          Rect.fromLTWH(0, 0, targetWidth, targetHeight),
+          paint,
+        );
+      },
+      Size(targetWidth, targetHeight),
+    );
+
+    // Step 6: Brightness Check & Overlay
+    final tinyImage = await _drawToImage(
+      (canvas) {
+        canvas.drawImageRect(
+          finalImage,
+          Rect.fromLTWH(0, 0, finalImage.width.toDouble(), finalImage.height.toDouble()),
+          const Rect.fromLTWH(0, 0, 3, 3),
+          Paint(),
+        );
+      },
+      const Size(3, 3),
+    );
+
+    final brightness = await _calculateBrightness(tinyImage);
+    
+    // Kotlin: > 0.8 -> #50000000 (Black 31%)
+    //         < 0.2 -> #50FFFFFF (White 31%)
+    if (brightness > 0.8) {
+      return await _applyOverlay(finalImage, Colors.black.withOpacity(0.31));
+    } else if (brightness < 0.2) {
+      return await _applyOverlay(finalImage, Colors.white.withOpacity(0.31));
+    }
+
+    return finalImage;
+  }
+
   static Future<ui.Image> _applyMesh(ui.Image image, List<double> floats) async {
     final width = image.width.toDouble();
     final height = image.height.toDouble();

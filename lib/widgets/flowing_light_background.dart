@@ -8,12 +8,14 @@ import '../services/dynamic_bg_processor.dart';
 class FlowingLightBackground extends StatefulWidget {
   final ImageProvider? imageProvider;
   final Widget? child;
+  final bool useDesktopProcessing;
   final Duration duration;
 
   const FlowingLightBackground({
     super.key,
     this.imageProvider,
     this.child,
+    this.useDesktopProcessing = false,
     this.duration = const Duration(seconds: 5), // Speed up to 5s
     // Kotlin uses 3400ms, which is quite fast for a background. Maybe 10s is better for music player.
   });
@@ -121,7 +123,10 @@ class _FlowingLightBackgroundState extends State<FlowingLightBackground> with Si
       // If it's too slow, we might see a frame drop. The operations are relatively cheap on GPU though.
       // But readPixels (calculateBrightness) is slow.
       
-      final processed = await DynamicBgProcessor.processImage(rawImage);
+      
+      final processed = widget.useDesktopProcessing 
+          ? await DynamicBgProcessor.processImageDesktop(rawImage)
+          : await DynamicBgProcessor.processImage(rawImage);
 
       if (mounted && widget.imageProvider == _lastProvider) {
         setState(() {
