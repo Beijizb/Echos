@@ -32,7 +32,8 @@ class CyreneAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
       _startLyricUpdateTimer();
 
       // 启动自定义 Android 媒体通知服务（复用 audio_service 的 MediaSession）
-      AndroidMediaNotificationService().start();
+      // 🔧 修复：禁用自定义通知服务，避免与 audio_service/media_kit 的系统通知冲突导致出现两个播放器控件
+      // AndroidMediaNotificationService().start();
     }
     
     // 启动进度条更新定时器
