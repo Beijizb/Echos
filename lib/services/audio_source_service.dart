@@ -491,7 +491,8 @@ class AudioSourceService extends ChangeNotifier {
   String getLxQuality(AudioQuality quality) {
     switch (quality) {
       case AudioQuality.standard: return '128k';
-      case AudioQuality.exhigh: return '320k';
+      case AudioQuality.high:     return '320k'; // [新增] 映射到 320k
+      case AudioQuality.exhigh:   return '320k';
       case AudioQuality.lossless: return 'flac';
       case AudioQuality.hires:
       case AudioQuality.jymaster: return 'flac24bit';
@@ -549,7 +550,8 @@ class AudioSourceService extends ChangeNotifier {
   String getTuneHubQuality(AudioQuality quality) {
     switch (quality) {
       case AudioQuality.standard: return '128k';
-      case AudioQuality.exhigh: return '320k';
+      case AudioQuality.high:     return '320k'; // [新增] 映射到 320k
+      case AudioQuality.exhigh:   return '320k';
       case AudioQuality.lossless: return 'flac';
       case AudioQuality.hires:
       case AudioQuality.jymaster: return 'flac24bit';

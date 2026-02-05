@@ -120,6 +120,7 @@ class SongDetail {
 /// 音质等级枚举
 enum AudioQuality {
   standard,  // 标准
+  high,      // [新增] 高音质
   exhigh,    // 极高
   lossless,  // 无损
   hires,     // Hi-Res
@@ -133,6 +134,8 @@ extension AudioQualityExtension on AudioQuality {
     switch (this) {
       case AudioQuality.standard:
         return 'standard';
+      case AudioQuality.high: // [新增]
+        return 'high';
       case AudioQuality.exhigh:
         return 'exhigh';
       case AudioQuality.lossless:
@@ -152,6 +155,8 @@ extension AudioQualityExtension on AudioQuality {
     switch (this) {
       case AudioQuality.standard:
         return '标准音质';
+      case AudioQuality.high: // [新增]
+        return '高音质';
       case AudioQuality.exhigh:
         return '极高音质';
       case AudioQuality.lossless:

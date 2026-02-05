@@ -177,6 +177,7 @@ class _AudioSourceSettingsContentState
 
   String _getSourceTypeName(AudioSourceType type) {
     switch (type) {
+      case AudioSourceType.builtin: return '内置 API';
       case AudioSourceType.omniparse: return 'OmniParse';
       case AudioSourceType.lxmusic: return '洛雪音乐';
       case AudioSourceType.tunehub: return 'TuneHub';
