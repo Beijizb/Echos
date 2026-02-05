@@ -1055,16 +1055,14 @@ class MusicService extends ChangeNotifier {
 
       // 尝试从缓存获取
       final cacheKey = 'song_detail_${source.name}_$songId';
-      // Use specialized cache method
-      final cached = ApiCache().getSearch(cacheKey);
+      final cached = ApiCache().getSearch<SongDetail>(cacheKey);
       if (cached != null) {
         print('💾 [MusicService] 使用缓存的歌曲详情');
         DeveloperModeService().addLog('💾 [MusicService] 缓存命中');
-        return _parseSongDetailFromBuiltInApi(cached, source);
+        return cached;
       }
 
       // 从平台API获取歌曲详情
-      // Need explicit cast
       final result = await platform.getSongDetail(songId.toString(), AudioQuality.standard);
       
       if (result == null) {
@@ -1074,13 +1072,12 @@ class MusicService extends ChangeNotifier {
       }
 
       // 缓存结果（6小时）
-      // Use specialized cache method
       ApiCache().setSearch(cacheKey, result);
 
       print('✅ [MusicService] 成功获取歌曲详情');
       DeveloperModeService().addLog('✅ [MusicService] 获取成功');
 
-      return _parseSongDetailFromBuiltInApi(result, source);
+      return result;
     } catch (e) {
       print('❌ [MusicService] 内置API异常: $e');
       DeveloperModeService().addLog('❌ [MusicService] 异常: $e');
@@ -1143,14 +1140,11 @@ class MusicService extends ChangeNotifier {
 
       // 尝试从缓存获取
       final cacheKey = 'toplists_${source.name}';
-      // Use specialized cache method
-      final cached = ApiCache().getToplist(cacheKey);
-      if (cached != null && cached is List) {
+      final cached = ApiCache().getToplist<List<Toplist>>(cacheKey);
+      if (cached != null) {
         print('💾 [MusicService] 使用缓存的榜单数据');
         DeveloperModeService().addLog('💾 [MusicService] 缓存命中');
-        _toplists = cached
-            .map((item) => Toplist.fromJson(item as Map<String, dynamic>, source: source))
-            .toList();
+        _toplists = cached;
         _errorMessage = null;
         _isCached = true;
         print('✅ [MusicService] 成功加载 ${_toplists.length} 个榜单（缓存）');
@@ -1160,7 +1154,7 @@ class MusicService extends ChangeNotifier {
       // 从平台API获取榜单
       final result = await platform.getToplists();
       
-      if (result == null || result.isEmpty) {
+      if (result.isEmpty) {
         _errorMessage = '获取榜单失败';
         print('❌ [MusicService] $_errorMessage');
         DeveloperModeService().addLog('❌ [MusicService] $_errorMessage');
@@ -1168,13 +1162,10 @@ class MusicService extends ChangeNotifier {
       }
 
       // 缓存结果（30分钟）
-      // Use specialized cache method
       ApiCache().setToplist(cacheKey, result);
 
       // 解析榜单数据
-      _toplists = result
-          .map((item) => Toplist.fromJson(item as Map<String, dynamic>, source: source))
-          .toList();
+      _toplists = result;
 
       print('✅ [MusicService] 成功获取 ${_toplists.length} 个榜单');
       DeveloperModeService().addLog('✅ [MusicService] 成功获取 ${_toplists.length} 个榜单');

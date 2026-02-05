@@ -385,6 +385,7 @@ class AudioSourceService extends ChangeNotifier {
 
   /// 获取音源类型显示名称
   String getSourceTypeName() {
+    switch (sourceType) {
       case AudioSourceType.builtin:
         return '内置 API';
       case AudioSourceType.omniparse:
@@ -399,10 +400,10 @@ class AudioSourceService extends ChangeNotifier {
   /// 获取音源描述 (兼容旧版 API)
   String getSourceDescription() {
     if (!isConfigured) return '未配置';
-    if (activeSource!.type == AudioSourceType.lxmusic) {
-      return '${activeSource!.name} (v${activeSource!.version})';
+    if (activeSource?.type == AudioSourceType.lxmusic) {
+      return '${activeSource?.name} (v${activeSource?.version})';
     }
-    return activeSource!.url;
+    return activeSource?.url ?? '';
   }
 
   /// [Deprecated] Use addSource instead
