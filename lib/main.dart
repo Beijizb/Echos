@@ -47,7 +47,7 @@ import 'package:cyrene_music/pages/desktop_app_gate.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart' if (dart.library.html) '';
 
 Future<void> main() async {
-  final startupLogger = StartupLogger.bootstrapSync(appName: 'CyreneMusic');
+  final startupLogger = StartupLogger.bootstrapSync(appName: 'Echo');
   startupLogger.log('main() entered');
   if (startupLogger.filePath != null) {
     print(' [StartupLogger] ${startupLogger.filePath}');
@@ -158,7 +158,7 @@ Future<void> main() async {
         windowManager.waitUntilReadyToShow(windowOptions, () async {
           log(' windowManager.waitUntilReadyToShow callback entered');
           await timed('windowManager.setTitle', () async {
-            await windowManager.setTitle('Cyrene Music');
+            await windowManager.setTitle('Echo');
           });
 
           await timed('windowManager.setIcon', () async {
@@ -327,7 +327,7 @@ Future<void> main() async {
           appWindow.minSize = minSize;
           appWindow.size = initialSize;
           appWindow.alignment = Alignment.center;
-          appWindow.title = 'Cyrene Music';
+          appWindow.title = 'Echo';
           appWindow.show();
         });
       });
@@ -435,7 +435,7 @@ class _MyAppState extends State<MyApp> {
             builder: (context, _) {
               final isMiniMode = MiniPlayerWindowService().isMiniMode;
               return fluent.FluentApp(
-                title: 'Cyrene Music',
+                title: 'Echo',
                 debugShowCheckedModeBanner: false,
                 showPerformanceOverlay: DeveloperModeService().showPerformanceOverlay,
                 theme: themeManager.buildFluentThemeData(Brightness.light),
@@ -477,7 +477,7 @@ class _MyAppState extends State<MyApp> {
           // 使用 MaterialApp 包裹 CupertinoTheme 以保持 Navigator 等功能
           // MobileAppGate 内部处理状态切换，避免重建 MaterialApp
           return MaterialApp(
-            title: 'Cyrene Music',
+            title: 'Echo',
             debugShowCheckedModeBanner: false,
             showPerformanceOverlay: DeveloperModeService().showPerformanceOverlay,
             navigatorKey: MyApp.navigatorKey,

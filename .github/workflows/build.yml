@@ -78,6 +78,9 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Generate Icons
+        run: flutter pub run flutter_launcher_icons
+
       - name: Build APK
         run: flutter build apk --release --target-platform android-arm64 --split-per-abi
 
@@ -113,19 +116,22 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Generate Icons
+        run: flutter pub run flutter_launcher_icons
+
       - name: Build Windows
         run: flutter build windows --release
 
       - name: Create Windows archive
         run: |
           cd build/windows/x64/runner/Release
-          Compress-Archive -Path * -DestinationPath ../../../../../cyrene_music-windows-x64.zip
+          Compress-Archive -Path * -DestinationPath ../../../../../echo-windows-x64.zip
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-x64
-          path: cyrene_music-windows-x64.zip
+          path: echo-windows-x64.zip
 
   # Linux 构建
   build-linux:
@@ -238,6 +244,9 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Generate Icons
+        run: flutter pub run flutter_launcher_icons
+
       - name: Build iOS (no-codesign)
         run: flutter build ios --release --no-codesign
 
@@ -246,13 +255,13 @@ jobs:
           cd build/ios/iphoneos
           mkdir -p Payload
           cp -r Runner.app Payload/
-          zip -r ../../../cyrene_music-ios-unsigned.ipa Payload
+          zip -r ../../../echo-ios-unsigned.ipa Payload
 
       - name: Upload iOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ios-unsigned
-          path: cyrene_music-ios-unsigned.ipa
+          path: echo-ios-unsigned.ipa
 
   # 创建 Release
   create-release:

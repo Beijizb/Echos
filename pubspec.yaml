@@ -162,6 +162,7 @@ flutter:
     - assets/icons/tray_icon.png
     - assets/icons/new_ico.png
     - assets/icons/new_ico_white.png
+    - assets/icons/icon.png
     - assets/ui/
     - windows/runner/updater.ps1
 
@@ -195,19 +196,19 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/icons/new_ico_white.png"
+  image_path: "assets/icons/icon.png"
   adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/icons/new_ico_padded.png"
+  adaptive_icon_foreground: "assets/icons/icon.png"
   # Windows icon
   windows:
     generate: true
-    image_path: "assets/icons/new_ico_white.png"
+    image_path: "assets/icons/icon.png"
     icon_size: 256
   # macOS icon  
   macos:
     generate: true
-    image_path: "assets/icons/new_ico_white.png"
+    image_path: "assets/icons/icon.png"
   # Web icon
   web:
     generate: true
-    image_path: "assets/icons/new_ico_white.png"
+    image_path: "assets/icons/icon.png"

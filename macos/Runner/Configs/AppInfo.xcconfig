@@ -5,10 +5,10 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = cyrene_music
+PRODUCT_NAME = Echo
 
 // The application's bundle identifier
 PRODUCT_BUNDLE_IDENTIFIER = com.cyrene.music
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2025 Cyrene Music. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2025 Echo. All rights reserved.

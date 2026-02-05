@@ -24,7 +24,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // 设置进程为高优先级，确保渲染线程获得稳定调度
   SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
   // Ensure only one instance is running
-  const wchar_t kUniqueMutexName[] = L"Local\\CyreneMusicInstanceMutex";
+  const wchar_t kUniqueMutexName[] = L"Local\\EchoInstanceMutex";
   HANDLE mutex = CreateMutex(nullptr, TRUE, kUniqueMutexName);
   (void)mutex;
   if (GetLastError() == ERROR_ALREADY_EXISTS) {
@@ -58,7 +58,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   // 设置 AppUserModelID，确保 SMTC 可以正确识别应用
   // 格式: 公司名.应用名.子产品.版本号
-  ::SetCurrentProcessExplicitAppUserModelID(L"CyreneMusic.MusicPlayer.Desktop.1");
+  ::SetCurrentProcessExplicitAppUserModelID(L"Echo.MusicPlayer.Desktop.1");
   
   // 获取当前进程的窗口句柄（稍后设置）
   // 这将在 FlutterWindow 创建后设置应用显示名称
@@ -75,7 +75,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
-  if (!window.Create(L"cyrene_music", origin, size)) {
+  if (!window.Create(L"Echo", origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);
