@@ -277,8 +277,11 @@ class NeteasePlatform extends BasePlatform {
       id: item['id'],
       name: item['name'] ?? '',
       nameEn: item['name'] ?? '',
-      coverUrl: item['coverImgUrl'] ?? '',
-      updateFrequency: item['updateFrequency'] ?? '每日更新',
+      coverImgUrl: item['coverImgUrl'] ?? '',
+      creator: '',
+      trackCount: 0,
+      description: '',
+      // Remove updateFrequency as it is not in Toplist
       tracks: tracks,
       source: MusicSource.netease,
     );
@@ -288,7 +291,7 @@ class NeteasePlatform extends BasePlatform {
     switch (quality) {
       case AudioQuality.standard:
         return 'standard';
-      case AudioQuality.higher:
+      case AudioQuality.high:
         return 'higher';
       case AudioQuality.exhigh:
         return 'exhigh';

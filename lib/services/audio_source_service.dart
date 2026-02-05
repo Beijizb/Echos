@@ -385,7 +385,8 @@ class AudioSourceService extends ChangeNotifier {
 
   /// 获取音源类型显示名称
   String getSourceTypeName() {
-    switch (sourceType) {
+      case AudioSourceType.builtin:
+        return '内置 API';
       case AudioSourceType.omniparse:
         return 'OmniParse';
       case AudioSourceType.lxmusic:

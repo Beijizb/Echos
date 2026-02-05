@@ -106,7 +106,8 @@ class MusicService extends ChangeNotifier {
           final toplistsData = data['toplists'] as List<dynamic>;
           _toplists = toplistsData
               .map((item) => Toplist.fromJson(item as Map<String, dynamic>, source: source))
-              .toList();
+              .map((item) => item as Toplist)
+          .toList();
           
           print('✅ [MusicService] 成功获取 ${_toplists.length} 个榜单');
           DeveloperModeService().addLog('✅ [MusicService] 成功获取 ${_toplists.length} 个榜单');
@@ -1054,7 +1055,8 @@ class MusicService extends ChangeNotifier {
 
       // 尝试从缓存获取
       final cacheKey = 'song_detail_${source.name}_$songId';
-      final cached = ApiCache().get(cacheKey);
+      // Use specialized cache method
+      final cached = ApiCache().getSearch(cacheKey);
       if (cached != null) {
         print('💾 [MusicService] 使用缓存的歌曲详情');
         DeveloperModeService().addLog('💾 [MusicService] 缓存命中');
@@ -1062,7 +1064,8 @@ class MusicService extends ChangeNotifier {
       }
 
       // 从平台API获取歌曲详情
-      final result = await platform.getSongDetail(songId.toString());
+      // Need explicit cast
+      final result = await platform.getSongDetail(songId.toString(), AudioQuality.standard);
       
       if (result == null) {
         print('❌ [MusicService] 获取歌曲详情失败');
@@ -1071,7 +1074,8 @@ class MusicService extends ChangeNotifier {
       }
 
       // 缓存结果（6小时）
-      ApiCache().set(cacheKey, result, const Duration(hours: 6));
+      // Use specialized cache method
+      ApiCache().setSearch(cacheKey, result);
 
       print('✅ [MusicService] 成功获取歌曲详情');
       DeveloperModeService().addLog('✅ [MusicService] 获取成功');
@@ -1139,7 +1143,8 @@ class MusicService extends ChangeNotifier {
 
       // 尝试从缓存获取
       final cacheKey = 'toplists_${source.name}';
-      final cached = ApiCache().get(cacheKey);
+      // Use specialized cache method
+      final cached = ApiCache().getToplist(cacheKey);
       if (cached != null && cached is List) {
         print('💾 [MusicService] 使用缓存的榜单数据');
         DeveloperModeService().addLog('💾 [MusicService] 缓存命中');
@@ -1163,7 +1168,8 @@ class MusicService extends ChangeNotifier {
       }
 
       // 缓存结果（30分钟）
-      ApiCache().set(cacheKey, result, const Duration(minutes: 30));
+      // Use specialized cache method
+      ApiCache().setToplist(cacheKey, result);
 
       // 解析榜单数据
       _toplists = result

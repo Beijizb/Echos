@@ -1,6 +1,8 @@
-import '../models/track.dart';
-import '../models/song_detail.dart';
-import '../models/toplist.dart';
+import '../../models/track.dart';
+import '../../models/song_detail.dart';
+import '../../models/toplist.dart';
+import '../../services/audio_source_service.dart'; // For MusicSource
+import '../../services/audio_quality_service.dart'; // For AudioQuality
 import 'models/search_response.dart';
 import 'models/lyric_data.dart';
 import 'http_client.dart';

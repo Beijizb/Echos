@@ -95,6 +95,8 @@ class AudioQualityService extends ChangeNotifier {
         }
         // 回退默认值
         return [AudioQuality.standard, AudioQuality.exhigh, AudioQuality.lossless];
+      case AudioSourceType.builtin:
+        return tuneHubQualities;
       case AudioSourceType.omniparse:
         return omniParseQualities;
     }

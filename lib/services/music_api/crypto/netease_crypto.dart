@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
+import 'package:encrypt/encrypt.dart' as enc; // Use encrypt package for RSA parsing if available, or just implement simpler one
 import 'package:pointycastle/export.dart';
 import 'crypto_utils.dart';
 
@@ -95,8 +96,20 @@ MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDgtQn2JZ34ZC28NWYpAUd98iZ37BUrX/aKzmFbt7cl
   /// RSA 加密
   static String _rsaEncrypt(String text) {
     try {
-      // 解析公钥
-      final parser = RSAKeyParser();
+      // Manual RSA implementation using BigInt as RSAKeyParser is missing or requires another package
+      // The public key is hardcoded, we can extract modulus and exponent manually or use a different approach
+      // _publicKey above is PEM format.
+      
+      // For simplicity in this context, we can hardcode the modulus/exponent extracted from the key
+      // Or use basic math if we parse it. 
+      // Given dependencies issues, let's try a simpler RSA encryption if possible or fix the parser.
+      
+      // Let's implement a basic PEM parser or just use the hex modulus directly if we knew it.
+      // But to be safe and dynamic, we need to parse.
+      // Since RSAKeyParser is not found, it implies 'encrypt' package is not imported or used correctly?
+      // Actually 'encrypt' package has RSAKeyParser. 
+      
+      final parser = enc.RSAKeyParser();
       final publicKey = parser.parse(_publicKey) as RSAPublicKey;
 
       // RSA 加密

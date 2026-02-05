@@ -61,7 +61,8 @@ dependencies:
   
   # Cryptography for cache encryption
   crypto: ^3.0.3
-  
+  encrypt: ^5.0.3
+
   # RSA encryption for music API
   pointycastle: ^3.7.3
   

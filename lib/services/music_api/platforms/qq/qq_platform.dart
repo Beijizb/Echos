@@ -347,8 +347,11 @@ class QQPlatform extends BasePlatform {
       id: item['topId'],
       name: item['title'] ?? '',
       nameEn: item['titleEn'] ?? '',
-      coverUrl: item['headPicUrl'] ?? item['frontPicUrl'] ?? '',
-      updateFrequency: item['updateType'] ?? '每日更新',
+      coverImgUrl: item['headPicUrl'] ?? item['frontPicUrl'] ?? '',
+      creator: '',
+      trackCount: 0,
+      description: '',
+      // updateFrequency: item['update_key'] ?? '',
       tracks: [],
       source: MusicSource.qq,
     );
@@ -358,7 +361,7 @@ class QQPlatform extends BasePlatform {
     switch (quality) {
       case AudioQuality.standard:
         return 'standard';
-      case AudioQuality.higher:
+      case AudioQuality.high:
         return 'higher';
       case AudioQuality.exhigh:
         return 'exhigh';

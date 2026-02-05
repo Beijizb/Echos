@@ -275,9 +275,11 @@ class _AudioSourceSettingsContentState
                 Row(
                   children: [
                     Icon(
-                      config.type == AudioSourceType.lxmusic 
-                          ? fluent.FluentIcons.music_note 
-                          : (config.type == AudioSourceType.tunehub ? fluent.FluentIcons.globe : fluent.FluentIcons.link),
+                      config.type == AudioSourceType.builtin
+                          ? fluent.FluentIcons.app_icon_default
+                          : (config.type == AudioSourceType.lxmusic 
+                              ? fluent.FluentIcons.music_note 
+                              : (config.type == AudioSourceType.tunehub ? fluent.FluentIcons.globe : fluent.FluentIcons.link)),
                       size: 20,
                       color: isActive ? theme.accentColor : theme.resources.textFillColorSecondary,
                     ),
@@ -309,7 +311,7 @@ class _AudioSourceSettingsContentState
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '类型: ${config.type == AudioSourceType.lxmusic ? "洛雪音乐" : (config.type == AudioSourceType.tunehub ? "TuneHub" : "OmniParse")}',
+                  '类型: ${config.type == AudioSourceType.builtin ? "内置 API" : (config.type == AudioSourceType.lxmusic ? "洛雪音乐" : (config.type == AudioSourceType.tunehub ? "TuneHub" : "OmniParse"))}',
                   style: theme.typography.caption,
                 ),
                 if (config.version.isNotEmpty)
@@ -410,8 +412,12 @@ class _AudioSourceSettingsContentState
     // 构建音源类型图标
     Widget buildSourceIcon(AudioSourceConfig config, bool isActive) {
       final gradientColors = switch (config.type) {
-        AudioSourceType.lxmusic => [const Color(0xFF667eea), const Color(0xFF764ba2)],
-        AudioSourceType.tunehub => [const Color(0xFF11998e), const Color(0xFF38ef7d)],
+          AudioSourceType.builtin => [
+              const Color(0xFF4facfe),
+              const Color(0xFF00f2fe),
+            ],
+          AudioSourceType.lxmusic => [const Color(0xFF667eea), const Color(0xFF764ba2)],
+          AudioSourceType.tunehub => [const Color(0xFF11998e), const Color(0xFF38ef7d)],
         AudioSourceType.omniparse => [const Color(0xFFf093fb), const Color(0xFFf5576c)],
       };
       
@@ -437,11 +443,12 @@ class _AudioSourceSettingsContentState
           ] : null,
         ),
         child: Icon(
-          switch (config.type) {
-            AudioSourceType.lxmusic => CupertinoIcons.music_note_2,
-            AudioSourceType.tunehub => CupertinoIcons.cloud,
-            AudioSourceType.omniparse => CupertinoIcons.link,
-          },
+            switch (config.type) {
+              AudioSourceType.builtin => CupertinoIcons.app_badge,
+              AudioSourceType.lxmusic => CupertinoIcons.music_note_2,
+              AudioSourceType.tunehub => CupertinoIcons.cloud,
+              AudioSourceType.omniparse => CupertinoIcons.link,
+            },
           color: CupertinoColors.white,
           size: 22,
         ),
@@ -957,7 +964,9 @@ class _AudioSourceSettingsContentState
           borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(
-          config.type == AudioSourceType.lxmusic ? Icons.music_note : Icons.link,
+          config.type == AudioSourceType.builtin 
+              ? Icons.album 
+              : (config.type == AudioSourceType.lxmusic ? Icons.music_note : Icons.link),
           color: isActive ? colorScheme.onPrimaryContainer : colorScheme.onSurfaceVariant,
           size: 20,
         ),

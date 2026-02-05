@@ -285,8 +285,11 @@ class KuwoPlatform extends BasePlatform {
       id: int.tryParse(item['sourceid']?.toString() ?? '0') ?? 0,
       name: item['name'] ?? '',
       nameEn: item['name'] ?? '', // 酷我不提供英文名
-      coverUrl: item['pic'] ?? '',
-      updateFrequency: item['intro'] ?? '每日更新',
+      coverImgUrl: item['pic'] ?? '',
+      creator: '',
+      trackCount: 0,
+      description: item['intro'] ?? '',
+      // updateFrequency: item['intro'] ?? '每日更新',
       tracks: [],
       source: MusicSource.kuwo,
     );
@@ -301,7 +304,7 @@ class KuwoPlatform extends BasePlatform {
     switch (quality) {
       case AudioQuality.standard:
         return '128kmp3';
-      case AudioQuality.higher:
+      case AudioQuality.high:
         return '192kmp3';
       case AudioQuality.exhigh:
         return '320kmp3';

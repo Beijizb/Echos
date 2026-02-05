@@ -241,8 +241,11 @@ class KugouPlatform extends BasePlatform {
       id: item['rankid'],
       name: item['rankname'] ?? '',
       nameEn: item['rankname'] ?? '',
-      coverUrl: item['imgurl'] ?? '',
-      updateFrequency: '每日更新',
+      coverImgUrl: item['imgurl'] ?? '',
+      creator: '',
+      trackCount: 0,
+      description: item['intro'] ?? '',
+      // updateFrequency: item['update_frequency'] ?? '',
       tracks: [],
       source: MusicSource.kugou,
     );
@@ -252,7 +255,7 @@ class KugouPlatform extends BasePlatform {
     switch (quality) {
       case AudioQuality.standard:
         return 'standard';
-      case AudioQuality.higher:
+      case AudioQuality.high:
         return 'higher';
       case AudioQuality.exhigh:
         return 'exhigh';
