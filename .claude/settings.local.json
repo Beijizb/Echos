@@ -10,7 +10,8 @@
       "Bash(bun run dev)",
       "Bash(timeout:*)",
       "Bash(exit:*)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "Bash(flutter build:*)"
     ]
   }
 }
