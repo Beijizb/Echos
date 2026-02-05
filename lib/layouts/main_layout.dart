@@ -282,6 +282,7 @@ class _MainLayoutState extends State<MainLayout>
   void _showUserMenu() {
     final user = AuthService().currentUser;
     if (user == null) return;
+    final authEnabled = AuthService().authEnabled;
 
     showModalBottomSheet(
       context: context,
@@ -299,7 +300,7 @@ class _MainLayoutState extends State<MainLayout>
                     : null,
               ),
               title: Text(user.username),
-              subtitle: Text(user.email),
+              subtitle: Text(authEnabled ? user.email : '游客模式'),
             ),
             const Divider(),
             ListTile(
@@ -312,14 +313,15 @@ class _MainLayoutState extends State<MainLayout>
                 });
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.logout),
-              title: const Text('退出登录'),
-              onTap: () {
-                Navigator.pop(context);
-                _confirmLogout();
-              },
-            ),
+            if (authEnabled)
+              ListTile(
+                leading: const Icon(Icons.logout),
+                title: const Text('退出登录'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _confirmLogout();
+                },
+              ),
           ],
         ),
       ),

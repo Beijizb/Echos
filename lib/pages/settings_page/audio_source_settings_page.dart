@@ -1203,6 +1203,23 @@ class _AddAudioSourceDialogState extends State<AddAudioSourceDialog> {
     }
   }
 
+  Future<void> _saveBuiltInSource() async {
+    if (_isEditing) {
+      final newConfig = widget.existingConfig!.copyWith(
+        name: _nameController.text.isEmpty ? '内置 API' : _nameController.text,
+      );
+      _audioSourceService.updateSource(newConfig);
+    } else {
+      _audioSourceService.addSource(AudioSourceConfig(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        type: AudioSourceType.builtin,
+        name: _nameController.text.isEmpty ? '内置 API' : _nameController.text,
+        url: '', // Built-in doesn't need URL
+      ));
+    }
+    Navigator.of(context).pop();
+  }
+
   Future<void> _saveOmniParseSource() async {
     final url = _urlController.text.trim();
      if (url.isEmpty || !AudioSourceService.isValidUrl(url)) {
@@ -1315,6 +1332,17 @@ class _AddAudioSourceDialogState extends State<AddAudioSourceDialog> {
                    child: const Text('确认添加'),
                  ),
                ]
+            ] else if (_selectedType == AudioSourceType.builtin) ...[
+               fluent.InfoLabel(
+                 label: '名称 (可选)',
+                 child: fluent.TextBox(controller: _nameController, placeholder: '给音源起个名字'),
+               ),
+               const SizedBox(height: 16),
+               fluent.InfoBar(
+                 title: const Text('使用内置 API 实现'),
+                 content: const Text('此音源直接使用应用程序内置的音乐平台接口，无需配置服务器地址。'),
+                 severity: fluent.InfoBarSeverity.info,
+               ),
             ] else ...[
                fluent.InfoLabel(
                  label: '名称 (可选)',
@@ -1356,7 +1384,7 @@ class _AddAudioSourceDialogState extends State<AddAudioSourceDialog> {
         ),
         if (_selectedType != AudioSourceType.lxmusic) // LxMusic has its own confirm flow inside content (if key needed) or auto-adds
           fluent.FilledButton(
-            onPressed: _isProcessing ? null : (_selectedType == AudioSourceType.tunehub ? _saveTuneHubSource : _saveOmniParseSource),
+            onPressed: _isProcessing ? null : (_selectedType == AudioSourceType.tunehub ? _saveTuneHubSource : (_selectedType == AudioSourceType.builtin ? _saveBuiltInSource : _saveOmniParseSource)),
             child: _isProcessing 
                 ? const SizedBox(width: 16, height: 16, child: fluent.ProgressRing(strokeWidth: 2)) 
                 : Text(_isEditing ? '保存' : '添加'),
@@ -1624,7 +1652,9 @@ class _AddAudioSourceDialogState extends State<AddAudioSourceDialog> {
                                   ? null
                                   : (_selectedType == AudioSourceType.tunehub
                                       ? _saveTuneHubSource
-                                      : _saveOmniParseSource),
+                                      : (_selectedType == AudioSourceType.builtin
+                                          ? _saveBuiltInSource
+                                          : _saveOmniParseSource)),
                               child: Text(
                                 _isEditing ? '保存' : '添加',
                                 style: TextStyle(
@@ -1895,6 +1925,23 @@ class _AddAudioSourceDialogState extends State<AddAudioSourceDialog> {
                             ),
                           ),
                         ],
+                      ] else if (_selectedType == AudioSourceType.builtin) ...[
+                        buildSectionHeader('基本信息'),
+                        buildGroupedCard(
+                          children: [
+                            buildInputTile(
+                              placeholder: '音源名称（可选）',
+                              controller: _nameController,
+                            ),
+                          ],
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          child: Text(
+                            '此音源直接使用应用程序内置的音乐平台接口，无需配置服务器地址。',
+                            style: TextStyle(fontSize: 13, color: secondaryLabelColor),
+                          ),
+                        ),
                       ] else ...[
                         // TuneHub / OmniParse 配置
                         buildSectionHeader('基本信息'),
@@ -2073,6 +2120,40 @@ class _AddAudioSourceDialogState extends State<AddAudioSourceDialog> {
                     ),
                   ),
                 ]
+              ] else if (_selectedType == AudioSourceType.builtin) ...[
+                 TextField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    labelText: '名称 (可选)',
+                    hintText: '给音源起个名字',
+                    filled: true,
+                    fillColor: colorScheme.surfaceContainerHighest,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: colorScheme.onSecondaryContainer),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          '此音源直接使用应用程序内置的音乐平台接口，无需配置服务器地址。',
+                          style: TextStyle(color: colorScheme.onSecondaryContainer),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ] else ...[
                  TextField(
                   controller: _nameController,
@@ -2163,7 +2244,9 @@ class _AddAudioSourceDialogState extends State<AddAudioSourceDialog> {
                 ? null
                 : (_selectedType == AudioSourceType.tunehub
                     ? _saveTuneHubSource
-                    : _saveOmniParseSource),
+                    : (_selectedType == AudioSourceType.builtin
+                        ? _saveBuiltInSource
+                        : _saveOmniParseSource)),
             child: _isProcessing
                 ? const SizedBox(
                     width: 18,
@@ -2178,6 +2261,7 @@ class _AddAudioSourceDialogState extends State<AddAudioSourceDialog> {
 
   String _getTypeName(AudioSourceType type) {
     switch (type) {
+      case AudioSourceType.builtin: return '内置 API';
       case AudioSourceType.omniparse: return 'OmniParse / 自定义';
       case AudioSourceType.lxmusic: return '洛雪音乐脚本';
       case AudioSourceType.tunehub: return 'TuneHub';

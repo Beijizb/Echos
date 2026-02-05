@@ -76,8 +76,23 @@ class AuthService extends ChangeNotifier {
   static final AuthService _instance = AuthService._internal();
   factory AuthService() => _instance;
   AuthService._internal() {
+    if (!kAuthEnabled) {
+      _currentUser = _guestUser;
+      _isLoggedIn = true;
+      _authToken = null;
+      return;
+    }
     _loadUserFromStorage();
   }
+
+  static const bool kAuthEnabled = false;
+  static final User _guestUser = User(
+    id: 0,
+    email: 'guest@local',
+    username: '游客',
+    isVerified: true,
+    isSponsor: false,
+  );
 
   User? _currentUser;
   bool _isLoggedIn = false;
@@ -88,13 +103,14 @@ class AuthService extends ChangeNotifier {
   HttpServer? _oauthServer;
   Completer<String?>? _oauthCompleter;
 
-  User? get currentUser => _currentUser;
-  bool get isLoggedIn => _isLoggedIn;
-  
-  String? get token => _authToken;
+  bool get authEnabled => kAuthEnabled;
+  User? get currentUser => kAuthEnabled ? _currentUser : _guestUser;
+  bool get isLoggedIn => kAuthEnabled ? _isLoggedIn : true;
+  String? get token => kAuthEnabled ? _authToken : null;
 
   /// 从本地存储加载用户信息
   Future<void> _loadUserFromStorage() async {
+    if (!kAuthEnabled) return;
     try {
       final prefs = await SharedPreferences.getInstance();
       final userJson = prefs.getString('current_user');
@@ -150,6 +166,13 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> loginWithToken({required String token, Map<String, dynamic>? userJson}) async {
+    if (!kAuthEnabled) {
+      _currentUser = _guestUser;
+      _isLoggedIn = true;
+      _authToken = null;
+      notifyListeners();
+      return;
+    }
     _authToken = token;
     await _saveTokenToStorage(token);
 
@@ -353,6 +376,17 @@ class AuthService extends ChangeNotifier {
     required String account,
     required String password,
   }) async {
+    if (!kAuthEnabled) {
+      _currentUser = _guestUser;
+      _authToken = null;
+      _isLoggedIn = true;
+      notifyListeners();
+      return {
+        'success': true,
+        'message': '登录已禁用',
+        'user': _currentUser,
+      };
+    }
     try {
       final response = await http.post(
         Uri.parse('${UrlService().baseUrl}/auth/login'),
@@ -791,6 +825,13 @@ class AuthService extends ChangeNotifier {
 
   /// 登出
   Future<void> logout() async {
+    if (!kAuthEnabled) {
+      _currentUser = _guestUser;
+      _isLoggedIn = true;
+      _authToken = null;
+      notifyListeners();
+      return;
+    }
     final username = _currentUser?.username;
     _currentUser = null;
     _isLoggedIn = false;
@@ -808,6 +849,7 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<bool> validateToken() async {
+    if (!kAuthEnabled) return true;
     if (_authToken == null || _authToken!.isEmpty) {
       return false;
     }
@@ -832,6 +874,7 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> handleUnauthorized() async {
+    if (!kAuthEnabled) return;
     await logout();
     print('当前登录态已失效，请重新登录');
     AuthOverlayService().show();

@@ -399,6 +399,7 @@ class _FluentMainLayoutState extends State<FluentMainLayout> with WindowListener
   Future<void> _showUserMenu() async {
     final user = AuthService().currentUser;
     if (user == null || !mounted) return;
+    final authEnabled = AuthService().authEnabled;
 
     final result = await fluent_ui.showDialog<_FluentUserAction>(
       context: context,
@@ -422,10 +423,11 @@ class _FluentMainLayoutState extends State<FluentMainLayout> with WindowListener
               child: const Text('关闭'),
               onPressed: () => Navigator.pop(context),
             ),
-            fluent_ui.FilledButton(
-              child: const Text('退出登录'),
-              onPressed: () => Navigator.pop(context, _FluentUserAction.logout),
-            ),
+            if (authEnabled)
+              fluent_ui.FilledButton(
+                child: const Text('退出登录'),
+                onPressed: () => Navigator.pop(context, _FluentUserAction.logout),
+              ),
           ],
         );
       },
@@ -484,6 +486,12 @@ class _FluentMainLayoutState extends State<FluentMainLayout> with WindowListener
 
   /// 构建用户操作组件（头像或登录按钮）
   Widget _buildUserActionWidget() {
+    if (!AuthService().authEnabled) {
+      return fluent_ui.IconButton(
+        icon: const Icon(fluent_ui.FluentIcons.contact),
+        onPressed: () => _navigationProvider.navigateTo(4),
+      );
+    }
     final isLogged = AuthService().isLoggedIn;
     final user = AuthService().currentUser;
     const double size = 28;

@@ -12,6 +12,7 @@ import 'lx_music_runtime_service.dart';
 
 /// 音源类型枚举
 enum AudioSourceType {
+  builtin,     // 内置音源（新增）
   omniparse,   // OmniParse 音源（兼容现有后端格式）
   lxmusic,     // 洛雪音乐音源
   tunehub,     // TuneHub 音源（公开 API）
@@ -70,6 +71,7 @@ class AudioSourceService extends ChangeNotifier {
 
   /// 各音源类型默认支持的搜索平台
   static const Map<AudioSourceType, List<String>> defaultSupportedPlatforms = {
+    AudioSourceType.builtin: ['netease', 'qq', 'kugou', 'kuwo'], // 内置API支持的平台
     AudioSourceType.omniparse: ['netease', 'qq', 'kugou', 'kuwo', 'apple'],
     AudioSourceType.tunehub: ['netease', 'qq', 'kuwo'],
     AudioSourceType.lxmusic: [], // 动态从脚本获取

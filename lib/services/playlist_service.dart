@@ -4,7 +4,9 @@ import 'package:http/http.dart' as http;
 import '../models/playlist.dart';
 import '../models/track.dart';
 import 'auth_service.dart';
+import 'favorite_service.dart';
 import 'url_service.dart';
+import 'music_api/platform_factory.dart';
 
 class PlaylistSyncResult {
   final int insertedCount;
@@ -37,15 +39,52 @@ class PlaylistService extends ChangeNotifier {
     AuthService().addListener(_onAuthChanged);
   }
 
+  final DateTime _guestCreatedAt = DateTime.now();
+
+  Future<void> _ensureGuestDefaultPlaylist() async {
+    await FavoriteService().loadFavorites();
+    final favorites = FavoriteService().favorites;
+    _playlists = [
+      Playlist(
+        id: 0,
+        name: '我的收藏',
+        isDefault: true,
+        trackCount: favorites.length,
+        coverUrl: favorites.isNotEmpty ? favorites.first.picUrl : null,
+        createdAt: _guestCreatedAt,
+        updatedAt: DateTime.now(),
+      ),
+    ];
+  }
+
+  List<PlaylistTrack> _guestTracksFromFavorites() {
+    return FavoriteService()
+        .favorites
+        .map(
+          (f) => PlaylistTrack(
+            trackId: f.id,
+            name: f.name,
+            artists: f.artists,
+            album: f.album,
+            picUrl: f.picUrl,
+            source: f.source,
+            addedAt: f.addedAt,
+          ),
+        )
+        .toList();
+  }
+
   /// 更新歌单导入配置
   Future<bool> updateImportConfig(int playlistId, {
     required String source,
     required String sourcePlaylistId,
   }) async {
+    if (!AuthService().authEnabled) return false;
     if (!AuthService().isLoggedIn) return false;
     try {
       final baseUrl = UrlService().baseUrl;
-      final token = AuthService().token!;
+      final token = AuthService().token;
+      if (token == null) return false;
       final resp = await http.put(
         Uri.parse('$baseUrl/playlists/$playlistId/import-config'),
         headers: {
@@ -81,10 +120,12 @@ class PlaylistService extends ChangeNotifier {
 
   /// 触发服务端同步
   Future<PlaylistSyncResult> syncPlaylist(int playlistId) async {
+    if (!AuthService().authEnabled) return PlaylistSyncResult.empty();
     if (!AuthService().isLoggedIn) return PlaylistSyncResult.empty();
     try {
       final baseUrl = UrlService().baseUrl;
-      final token = AuthService().token!;
+      final token = AuthService().token;
+      if (token == null) return PlaylistSyncResult.empty(message: '无有效令牌');
       final url = '$baseUrl/playlists/$playlistId/sync';
       print('🚀 [PlaylistService] 同步开始: $url (playlistId=$playlistId)');
       final resp = await http.post(
@@ -205,6 +246,14 @@ class PlaylistService extends ChangeNotifier {
 
   /// 加载歌单列表
   Future<void> loadPlaylists() async {
+    if (!AuthService().authEnabled) {
+      _isLoading = true;
+      notifyListeners();
+      await _ensureGuestDefaultPlaylist();
+      _isLoading = false;
+      notifyListeners();
+      return;
+    }
     if (!AuthService().isLoggedIn) {
       print('⚠️ [PlaylistService] 未登录，无法加载歌单');
       return;
@@ -448,6 +497,16 @@ class PlaylistService extends ChangeNotifier {
 
   /// 添加歌曲到歌单
   Future<bool> addTrackToPlaylist(int playlistId, Track track) async {
+    if (!AuthService().authEnabled) {
+      if (playlistId != 0) return false;
+      final ok = await FavoriteService().addFavorite(track);
+      await _ensureGuestDefaultPlaylist();
+      if (_currentPlaylistId == 0) {
+        _currentTracks = _guestTracksFromFavorites();
+      }
+      notifyListeners();
+      return ok;
+    }
     if (!AuthService().isLoggedIn) {
       print('⚠️ [PlaylistService] 未登录，无法添加歌曲');
       return false;
@@ -519,6 +578,28 @@ class PlaylistService extends ChangeNotifier {
   /// 批量添加歌曲到歌单（高性能版本，一次网络请求）
   /// 返回 {successCount, skipCount, failCount}
   Future<Map<String, int>> addTracksToPlaylist(int playlistId, List<Track> tracks) async {
+    if (!AuthService().authEnabled) {
+      if (playlistId != 0) {
+        return {'successCount': 0, 'skipCount': 0, 'failCount': tracks.length};
+      }
+      int successCount = 0;
+      int skipCount = 0;
+      for (final t in tracks) {
+        final wasFavorite = FavoriteService().isFavorite(t);
+        final ok = await FavoriteService().addFavorite(t);
+        if (ok && !wasFavorite) {
+          successCount++;
+        } else if (ok && wasFavorite) {
+          skipCount++;
+        }
+      }
+      await _ensureGuestDefaultPlaylist();
+      if (_currentPlaylistId == 0) {
+        _currentTracks = _guestTracksFromFavorites();
+      }
+      notifyListeners();
+      return {'successCount': successCount, 'skipCount': skipCount, 'failCount': tracks.length - successCount - skipCount};
+    }
     if (!AuthService().isLoggedIn) {
       print('⚠️ [PlaylistService] 未登录，无法批量添加歌曲');
       return {'successCount': 0, 'skipCount': 0, 'failCount': tracks.length};
@@ -597,6 +678,16 @@ class PlaylistService extends ChangeNotifier {
 
   /// 加载歌单中的歌曲
   Future<void> loadPlaylistTracks(int playlistId) async {
+    if (!AuthService().authEnabled) {
+      _isLoadingTracks = true;
+      _currentPlaylistId = playlistId;
+      notifyListeners();
+      await FavoriteService().loadFavorites();
+      _currentTracks = playlistId == 0 ? _guestTracksFromFavorites() : [];
+      _isLoadingTracks = false;
+      notifyListeners();
+      return;
+    }
     if (!AuthService().isLoggedIn) {
       print('⚠️ [PlaylistService] 未登录，无法加载歌曲');
       return;
@@ -653,6 +744,30 @@ class PlaylistService extends ChangeNotifier {
 
   /// 从歌单删除歌曲（通过 trackId 和 source 字符串）
   Future<bool> removeTrackFromPlaylist(int playlistId, String trackId, String source) async {
+    if (!AuthService().authEnabled) {
+      if (playlistId != 0) return false;
+      final track = _currentTracks
+          .firstWhere(
+            (t) => t.trackId == trackId && t.source.name == source,
+            orElse: () => PlaylistTrack(
+              trackId: trackId,
+              name: '',
+              artists: '',
+              album: '',
+              picUrl: '',
+              source: MusicSource.values.firstWhere((e) => e.name == source, orElse: () => MusicSource.netease),
+              addedAt: DateTime.now(),
+            ),
+          )
+          .toTrack();
+      final ok = await FavoriteService().removeFavorite(track);
+      await _ensureGuestDefaultPlaylist();
+      if (_currentPlaylistId == 0) {
+        _currentTracks = _guestTracksFromFavorites();
+      }
+      notifyListeners();
+      return ok;
+    }
     if (!AuthService().isLoggedIn) {
       print('⚠️ [PlaylistService] 未登录，无法删除歌曲');
       return false;
@@ -746,6 +861,20 @@ class PlaylistService extends ChangeNotifier {
 
   /// 批量删除歌曲
   Future<int> removeTracksFromPlaylist(int playlistId, List<PlaylistTrack> tracks) async {
+    if (!AuthService().authEnabled) {
+      if (playlistId != 0) return 0;
+      int deleted = 0;
+      for (final t in tracks) {
+        final ok = await FavoriteService().removeFavorite(t.toTrack());
+        if (ok) deleted++;
+      }
+      await _ensureGuestDefaultPlaylist();
+      if (_currentPlaylistId == 0) {
+        _currentTracks = _guestTracksFromFavorites();
+      }
+      notifyListeners();
+      return deleted;
+    }
     if (!AuthService().isLoggedIn) {
       print('⚠️ [PlaylistService] 未登录，无法批量删除歌曲');
       return 0;
@@ -832,6 +961,47 @@ class PlaylistService extends ChangeNotifier {
       }
     } catch (e) {
       print('❌ [PlaylistService] 批量删除失败: $e');
+      return 0;
+    }
+  }
+
+  /// 从内置 API 导入歌单
+  /// 
+  /// [source] 来源平台
+  /// [sourcePlaylistId] 来源歌单ID
+  /// [targetPlaylistId] 目标本地歌单ID (0表示默认歌单/收藏)
+  /// 
+  /// 返回成功导入的歌曲数量
+  Future<int> importPlaylistFromBuiltIn(MusicSource source, String sourcePlaylistId, {int targetPlaylistId = 0}) async {
+    try {
+      print('🚀 [PlaylistService] 开始从内置API导入歌单: ${source.name} - $sourcePlaylistId');
+      
+      final platform = PlatformFactory().getPlatform(source);
+      if (platform == null) {
+        print('❌ [PlaylistService] 不支持的平台: ${source.name}');
+        return 0;
+      }
+      
+      // 1. 获取歌单歌曲
+      // 注意：这可能会花费一些时间，取决于歌单大小和网络
+      final tracks = await platform.getPlaylistTracks(sourcePlaylistId);
+      
+      if (tracks.isEmpty) {
+        print('⚠️ [PlaylistService] 歌单为空或获取失败');
+        return 0;
+      }
+      
+      print('✅ [PlaylistService] 获取到 ${tracks.length} 首歌曲，准备添加到本地歌单 $targetPlaylistId');
+      
+      // 2. 批量添加到目标歌单
+      final result = await addTracksToPlaylist(targetPlaylistId, tracks);
+      
+      final successCount = result['successCount'] ?? 0;
+      print('✅ [PlaylistService] 导入完成，成功: $successCount');
+      
+      return successCount;
+    } catch (e) {
+      print('❌ [PlaylistService] 导入失败: $e');
       return 0;
     }
   }

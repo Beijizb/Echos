@@ -39,9 +39,13 @@ class _UserCardState extends State<UserCard> {
   @override
   void initState() {
     super.initState();
-    AuthService().addListener(_onAuthChanged);
+    if (AuthService().authEnabled) {
+      AuthService().addListener(_onAuthChanged);
+    }
     LocationService().addListener(_onLocationChanged);
-    _checkSponsorStatus();
+    if (AuthService().authEnabled) {
+      _checkSponsorStatus();
+    }
   }
 
   /// 在 Fluent UI 中以 ContentDialog 方式显示登录界面
@@ -853,13 +857,16 @@ class _UserCardState extends State<UserCard> {
   @override
   void dispose() {
     _usernameController.dispose();
-    AuthService().removeListener(_onAuthChanged);
+    if (AuthService().authEnabled) {
+      AuthService().removeListener(_onAuthChanged);
+    }
     LocationService().removeListener(_onLocationChanged);
     super.dispose();
   }
 
   void _onAuthChanged() {
     if (!mounted) return;
+    if (!AuthService().authEnabled) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       setState(() {});
@@ -1146,6 +1153,13 @@ class _UserCardState extends State<UserCard> {
 
   @override
   Widget build(BuildContext context) {
+    if (!AuthService().authEnabled) {
+      final isFluentUI = Platform.isWindows && ThemeManager().isFluentFramework;
+      final isCupertinoUI = ThemeManager().isCupertinoFramework;
+      if (isFluentUI) return _buildGuestCardFluent(context);
+      if (isCupertinoUI) return _buildGuestCardCupertino(context);
+      return _buildGuestCard(context);
+    }
     final isLoggedIn = AuthService().isLoggedIn;
     final user = AuthService().currentUser;
     final isFluentUI = Platform.isWindows && ThemeManager().isFluentFramework;
@@ -1213,6 +1227,115 @@ class _UserCardState extends State<UserCard> {
             FilledButton(
               onPressed: () => _handleLogin(context),
               child: const Text('登录'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGuestCard(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Container(
+        padding: const EdgeInsets.all(24.0),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.person_outline,
+                size: 32,
+                color: colorScheme.onPrimaryContainer,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '游客模式',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '已关闭账号登录功能',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGuestCardFluent(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: fluent_ui.Card(
+        padding: const EdgeInsets.all(20.0),
+        child: Row(
+          children: [
+            const Icon(fluent_ui.FluentIcons.contact, size: 36),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('游客模式', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  SizedBox(height: 4),
+                  Text('已关闭账号登录功能'),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGuestCardCupertino(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Container(
+        padding: const EdgeInsets.all(20.0),
+        decoration: BoxDecoration(
+          color: CupertinoColors.secondarySystemBackground.resolveFrom(context),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: const Row(
+          children: [
+            Icon(CupertinoIcons.person, size: 32),
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('游客模式', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  SizedBox(height: 4),
+                  Text('已关闭账号登录功能'),
+                ],
+              ),
             ),
           ],
         ),

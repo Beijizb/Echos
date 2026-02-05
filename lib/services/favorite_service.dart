@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/track.dart';
 import 'auth_service.dart';
 import 'url_service.dart';
@@ -88,6 +89,8 @@ class FavoriteService extends ChangeNotifier {
     AuthService().addListener(_onAuthChanged);
   }
 
+  static const String _localFavoritesKey = 'local_favorites';
+
   List<FavoriteTrack> _favorites = [];
   List<FavoriteTrack> get favorites => _favorites;
 
@@ -95,6 +98,37 @@ class FavoriteService extends ChangeNotifier {
   bool get isLoading => _isLoading;
 
   Set<String> _favoriteIds = {}; // 用于快速查找
+
+  Future<void> _loadLocalFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_localFavoritesKey);
+    if (raw == null || raw.isEmpty) {
+      _favorites = [];
+      _favoriteIds = {};
+      return;
+    }
+    final list = json.decode(raw) as List<dynamic>;
+    _favorites = list
+        .map((e) => FavoriteTrack.fromJson(e as Map<String, dynamic>))
+        .toList();
+    _favoriteIds = _favorites.map((f) => '${f.source}_${f.id}').toSet();
+  }
+
+  Future<void> _saveLocalFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = _favorites
+        .map((f) => {
+              'trackId': f.id,
+              'name': f.name,
+              'artists': f.artists,
+              'album': f.album,
+              'picUrl': f.picUrl,
+              'source': f.source.toString().split('.').last,
+              'addedAt': f.addedAt.toIso8601String(),
+            })
+        .toList();
+    await prefs.setString(_localFavoritesKey, json.encode(list));
+  }
 
   /// 监听认证状态变化
   void _onAuthChanged() {
@@ -112,6 +146,17 @@ class FavoriteService extends ChangeNotifier {
 
   /// 加载收藏列表
   Future<void> loadFavorites() async {
+    if (!AuthService().authEnabled) {
+      try {
+        _isLoading = true;
+        notifyListeners();
+        await _loadLocalFavorites();
+      } finally {
+        _isLoading = false;
+        notifyListeners();
+      }
+      return;
+    }
     if (!AuthService().isLoggedIn) {
       print('⚠️ [FavoriteService] 未登录，无法加载收藏');
       return;
@@ -172,6 +217,15 @@ class FavoriteService extends ChangeNotifier {
 
   /// 添加收藏
   Future<bool> addFavorite(Track track) async {
+    if (!AuthService().authEnabled) {
+      final favoriteTrack = FavoriteTrack.fromTrack(track);
+      if (_favoriteIds.contains('${track.source}_${track.id}')) return true;
+      _favorites.insert(0, favoriteTrack);
+      _favoriteIds.add('${track.source}_${track.id}');
+      await _saveLocalFavorites();
+      notifyListeners();
+      return true;
+    }
     if (!AuthService().isLoggedIn) {
       print('⚠️ [FavoriteService] 未登录，无法添加收藏');
       return false;
@@ -226,6 +280,14 @@ class FavoriteService extends ChangeNotifier {
 
   /// 删除收藏
   Future<bool> removeFavorite(Track track) async {
+    if (!AuthService().authEnabled) {
+      final trackId = track.id.toString();
+      _favorites.removeWhere((f) => f.id == trackId && f.source == track.source);
+      _favoriteIds.remove('${track.source}_${track.id}');
+      await _saveLocalFavorites();
+      notifyListeners();
+      return true;
+    }
     if (!AuthService().isLoggedIn) {
       print('⚠️ [FavoriteService] 未登录，无法删除收藏');
       return false;

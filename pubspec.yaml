@@ -62,6 +62,9 @@ dependencies:
   # Cryptography for cache encryption
   crypto: ^3.0.3
   
+  # RSA encryption for music API
+  pointycastle: ^3.7.3
+  
   # File picker for directory selection
   file_picker: ^8.0.0
   

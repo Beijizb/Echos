@@ -11,6 +11,7 @@ import 'linuxdo_webview_login_page.dart';
 
 /// 显示认证页面（改为内嵌 Stack 页面，而非对话框）
 Future<bool?> showAuthDialog(BuildContext context, {int initialTab = 0}) {
+  if (!AuthService().authEnabled) return Future.value(true);
   // 桌面端（Windows/macOS/Linux）：走内容区覆盖层服务，避免新路由拦截焦点
   if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
     return AuthOverlayService().show(initialTab: initialTab);

@@ -6,6 +6,8 @@ import '../models/track.dart';
 import '../models/merged_track.dart';
 import 'url_service.dart';
 import 'audio_source_service.dart';
+import 'music_api/platform_factory.dart';
+import 'music_api/api_cache.dart';
 
 /// 搜索结果模型
 class SearchResult {
@@ -122,6 +124,48 @@ class SearchService extends ChangeNotifier {
     // 保存到搜索历史
     await _addToSearchHistory(keyword);
     
+    // 检查是否使用内置API
+    final audioSourceService = AudioSourceService();
+    final useBuiltInApi = audioSourceService.sourceType == AudioSourceType.builtin;
+    
+    if (useBuiltInApi) {
+      // 使用内置API搜索
+      await _searchWithBuiltInApi(keyword);
+    } else {
+      // 使用外部API搜索（保持原有逻辑）
+      await _searchWithExternalApi(keyword);
+    }
+  }
+
+  /// 使用内置API搜索
+  Future<void> _searchWithBuiltInApi(String keyword) async {
+    print('🔍 [SearchService] 使用内置API搜索: $keyword');
+    
+    // 获取支持的平台
+    final supportedPlatforms = AudioSourceService().currentSupportedPlatforms;
+    print('🔍 [SearchService] 支持的平台: $supportedPlatforms');
+    
+    // 设置加载状态
+    _searchResult = SearchResult(
+      neteaseLoading: supportedPlatforms.contains('netease'),
+      qqLoading: supportedPlatforms.contains('qq'),
+      kugouLoading: supportedPlatforms.contains('kugou'),
+      kuwoLoading: supportedPlatforms.contains('kuwo'),
+    );
+    notifyListeners();
+
+    // 并行搜索所有平台
+    final futures = <Future<void>>[];
+    for (final platformName in supportedPlatforms) {
+      futures.add(_searchPlatformWithBuiltInApi(platformName, keyword));
+    }
+    
+    await Future.wait(futures);
+    print('✅ [SearchService] 内置API搜索完成');
+  }
+
+  /// 使用外部API搜索（原有逻辑）
+  Future<void> _searchWithExternalApi(String keyword) async {
     // 获取当前音源支持的平台
     final supportedPlatforms = AudioSourceService().currentSupportedPlatforms;
     print('🔍 [SearchService] 当前音源支持的平台: $supportedPlatforms');
@@ -149,6 +193,98 @@ class SearchService extends ChangeNotifier {
     await Future.wait(futures);
 
     print('✅ [SearchService] 搜索完成，共 ${_searchResult.totalCount} 条结果');
+  }
+
+  /// 使用内置API搜索单个平台
+  Future<void> _searchPlatformWithBuiltInApi(String platformName, String keyword) async {
+    try {
+      print('🎵 [SearchService] 内置API搜索 $platformName: $keyword');
+      
+      // 检查缓存
+      final cache = ApiCache();
+      final cacheKey = '${platformName}_$keyword';
+      final cached = cache.getSearch<List<Track>>(cacheKey);
+      
+      if (cached != null) {
+        _updatePlatformResults(platformName, cached);
+        return;
+      }
+
+      // 获取平台实例
+      final source = _platformNameToSource(platformName);
+      final platform = PlatformFactory().getPlatform(source);
+      
+      if (platform == null) {
+        throw Exception('平台未找到: $platformName');
+      }
+
+      // 搜索
+      final response = await platform.search(keyword, limit: 20);
+      
+      // 缓存结果
+      cache.setSearch(cacheKey, response.tracks);
+      
+      // 更新结果
+      _updatePlatformResults(platformName, response.tracks);
+      
+      print('✅ [SearchService] $platformName 搜索完成: ${response.tracks.length} 首');
+    } catch (e) {
+      print('❌ [SearchService] $platformName 搜索失败: $e');
+      _updatePlatformResults(platformName, [], error: e.toString());
+    }
+  }
+
+  /// 更新平台搜索结果
+  void _updatePlatformResults(String platformName, List<Track> tracks, {String? error}) {
+    switch (platformName) {
+      case 'netease':
+        _searchResult = _searchResult.copyWith(
+          neteaseResults: tracks,
+          neteaseLoading: false,
+          neteaseError: error,
+        );
+        break;
+      case 'qq':
+        _searchResult = _searchResult.copyWith(
+          qqResults: tracks,
+          qqLoading: false,
+          qqError: error,
+        );
+        break;
+      case 'kugou':
+        _searchResult = _searchResult.copyWith(
+          kugouResults: tracks,
+          kugouLoading: false,
+          kugouError: error,
+        );
+        break;
+      case 'kuwo':
+        _searchResult = _searchResult.copyWith(
+          kuwoResults: tracks,
+          kuwoLoading: false,
+          kuwoError: error,
+        );
+        break;
+    }
+    notifyListeners();
+  }
+
+  /// 平台名称转换为 MusicSource
+  MusicSource _platformNameToSource(String platformName) {
+    switch (platformName) {
+      case 'netease':
+        return MusicSource.netease;
+      case 'qq':
+        return MusicSource.qq;
+      case 'kugou':
+        return MusicSource.kugou;
+      case 'kuwo':
+        return MusicSource.kuwo;
+      case 'apple':
+        return MusicSource.apple;
+      default:
+        return MusicSource.netease;
+    }
   }
 
   /// 获取当前音源支持的搜索平台列表

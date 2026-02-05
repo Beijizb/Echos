@@ -40,6 +40,9 @@ class _TrackListTileState extends State<TrackListTile> {
   /// 检查登录状态，如果未登录则跳转到登录页面
   /// 返回 true 表示已登录或登录成功，返回 false 表示未登录或取消登录
   Future<bool> _checkLoginStatus() async {
+    if (!AuthService().authEnabled) {
+      return true;
+    }
     if (AuthService().isLoggedIn) {
       return true;
     }

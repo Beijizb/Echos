@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
+import '../services/auth_service.dart';
 import '../utils/theme_manager.dart';
 import '../pages/auth/auth_page.dart';
 import '../pages/settings_page/user_card.dart';
@@ -58,6 +59,7 @@ class _LoginPromptState extends State<LoginPrompt>
   
   @override
   Widget build(BuildContext context) {
+    if (!AuthService().authEnabled) return const SizedBox.shrink();
     final themeManager = ThemeManager();
     final isMobile = Platform.isIOS || Platform.isAndroid;
     

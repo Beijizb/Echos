@@ -11,6 +11,8 @@ import 'developer_mode_service.dart';
 import 'audio_quality_service.dart';
 import 'auth_service.dart';
 import 'lx_music_runtime_service.dart';
+import 'music_api/platform_factory.dart';
+import 'music_api/api_cache.dart';
 
 /// 音乐服务 - 处理与音乐相关的API请求
 class MusicService extends ChangeNotifier {
@@ -58,6 +60,14 @@ class MusicService extends ChangeNotifier {
       if (forceRefresh) {
         print('🔄 [MusicService] 强制刷新模式');
         DeveloperModeService().addLog('🔄 [MusicService] 强制刷新');
+      }
+
+      // 检查是否使用内置API
+      final audioSourceService = AudioSourceService();
+      if (audioSourceService.isConfigured &&
+          audioSourceService.sourceType == AudioSourceType.builtin) {
+        await _fetchToplistsWithBuiltInApi(source: source);
+        return;
       }
 
       final baseUrl = UrlService().baseUrl;
@@ -214,6 +224,15 @@ class MusicService extends ChangeNotifier {
         print('⚠️ [MusicService] 音源未配置，无法获取歌曲 URL');
         DeveloperModeService().addLog('⚠️ [MusicService] 音源未配置');
         throw AudioSourceNotConfiguredException();
+      }
+
+      // 🎵 内置API：使用内置的音乐平台API
+      if (audioSourceService.sourceType == AudioSourceType.builtin) {
+        return await _fetchSongDetailWithBuiltInApi(
+          songId: songId,
+          quality: quality,
+          source: source,
+        );
       }
 
       // 🎵 洛雪音源：使用专门的 API 格式
@@ -1012,6 +1031,161 @@ class MusicService extends ChangeNotifier {
       print('❌ [MusicService] TuneHub v3 音源异常: $e');
       DeveloperModeService().addLog('❌ [MusicService] 异常: $e');
       return null;
+    }
+  }
+
+  /// 使用内置API获取歌曲详情
+  Future<SongDetail?> _fetchSongDetailWithBuiltInApi({
+    required dynamic songId,
+    required AudioQuality quality,
+    required MusicSource source,
+  }) async {
+    try {
+      print('🎵 [MusicService] 使用内置API获取歌曲详情: $songId (${source.name})');
+      DeveloperModeService().addLog('🎵 [MusicService] 内置API - 获取歌曲详情');
+
+      // 获取平台实例
+      final platform = PlatformFactory().getPlatform(source);
+      if (platform == null) {
+        print('❌ [MusicService] 不支持的音乐平台: ${source.name}');
+        DeveloperModeService().addLog('❌ [MusicService] 不支持的平台: ${source.name}');
+        return null;
+      }
+
+      // 尝试从缓存获取
+      final cacheKey = 'song_detail_${source.name}_$songId';
+      final cached = ApiCache().get(cacheKey);
+      if (cached != null) {
+        print('💾 [MusicService] 使用缓存的歌曲详情');
+        DeveloperModeService().addLog('💾 [MusicService] 缓存命中');
+        return _parseSongDetailFromBuiltInApi(cached, source);
+      }
+
+      // 从平台API获取歌曲详情
+      final result = await platform.getSongDetail(songId.toString());
+      
+      if (result == null) {
+        print('❌ [MusicService] 获取歌曲详情失败');
+        DeveloperModeService().addLog('❌ [MusicService] 获取失败');
+        return null;
+      }
+
+      // 缓存结果（6小时）
+      ApiCache().set(cacheKey, result, const Duration(hours: 6));
+
+      print('✅ [MusicService] 成功获取歌曲详情');
+      DeveloperModeService().addLog('✅ [MusicService] 获取成功');
+
+      return _parseSongDetailFromBuiltInApi(result, source);
+    } catch (e) {
+      print('❌ [MusicService] 内置API异常: $e');
+      DeveloperModeService().addLog('❌ [MusicService] 异常: $e');
+      return null;
+    }
+  }
+
+  /// 解析内置API返回的歌曲详情
+  SongDetail? _parseSongDetailFromBuiltInApi(Map<String, dynamic> data, MusicSource source) {
+    try {
+      final songId = data['id']?.toString() ?? '';
+      final name = data['name'] as String? ?? '';
+      final pic = data['pic'] as String? ?? '';
+      final artistName = data['artist'] as String? ?? data['ar_name'] as String? ?? '';
+      final albumName = data['album'] as String? ?? data['al_name'] as String? ?? '';
+      final url = data['url'] as String? ?? '';
+      final lyric = data['lyric'] as String? ?? '';
+      final tlyric = data['tlyric'] as String? ?? '';
+
+      if (songId.isEmpty || name.isEmpty) {
+        print('⚠️ [MusicService] 歌曲详情数据不完整');
+        return null;
+      }
+
+      return SongDetail(
+        id: songId,
+        name: name,
+        pic: pic,
+        arName: artistName,
+        alName: albumName,
+        level: 'exhigh',
+        size: '0',
+        url: url,
+        lyric: lyric,
+        tlyric: tlyric,
+        source: source,
+      );
+    } catch (e) {
+      print('❌ [MusicService] 解析歌曲详情失败: $e');
+      return null;
+    }
+  }
+
+  /// 使用内置API获取榜单列表
+  Future<void> _fetchToplistsWithBuiltInApi({
+    required MusicSource source,
+  }) async {
+    try {
+      print('🎵 [MusicService] 使用内置API获取榜单');
+      DeveloperModeService().addLog('🎵 [MusicService] 内置API - 获取榜单');
+
+      // 获取平台实例
+      final platform = PlatformFactory().getPlatform(source);
+      if (platform == null) {
+        _errorMessage = '不支持的音乐平台: ${source.name}';
+        print('❌ [MusicService] $_errorMessage');
+        DeveloperModeService().addLog('❌ [MusicService] $_errorMessage');
+        return;
+      }
+
+      // 尝试从缓存获取
+      final cacheKey = 'toplists_${source.name}';
+      final cached = ApiCache().get(cacheKey);
+      if (cached != null && cached is List) {
+        print('💾 [MusicService] 使用缓存的榜单数据');
+        DeveloperModeService().addLog('💾 [MusicService] 缓存命中');
+        _toplists = cached
+            .map((item) => Toplist.fromJson(item as Map<String, dynamic>, source: source))
+            .toList();
+        _errorMessage = null;
+        _isCached = true;
+        print('✅ [MusicService] 成功加载 ${_toplists.length} 个榜单（缓存）');
+        return;
+      }
+
+      // 从平台API获取榜单
+      final result = await platform.getToplists();
+      
+      if (result == null || result.isEmpty) {
+        _errorMessage = '获取榜单失败';
+        print('❌ [MusicService] $_errorMessage');
+        DeveloperModeService().addLog('❌ [MusicService] $_errorMessage');
+        return;
+      }
+
+      // 缓存结果（30分钟）
+      ApiCache().set(cacheKey, result, const Duration(minutes: 30));
+
+      // 解析榜单数据
+      _toplists = result
+          .map((item) => Toplist.fromJson(item as Map<String, dynamic>, source: source))
+          .toList();
+
+      print('✅ [MusicService] 成功获取 ${_toplists.length} 个榜单');
+      DeveloperModeService().addLog('✅ [MusicService] 成功获取 ${_toplists.length} 个榜单');
+
+      // 打印每个榜单的歌曲数量
+      for (var toplist in _toplists) {
+        print('   📊 ${toplist.name}: ${toplist.tracks.length} 首歌曲');
+      }
+
+      _errorMessage = null;
+      _isCached = true;
+      print('💾 [MusicService] 数据已缓存');
+      DeveloperModeService().addLog('💾 [MusicService] 数据已缓存');
+    } catch (e) {
+      _errorMessage = '获取榜单失败: $e';
+      print('❌ [MusicService] $_errorMessage');
+      DeveloperModeService().addLog('❌ [MusicService] 异常: $e');
     }
   }
 }
