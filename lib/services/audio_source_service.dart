@@ -109,7 +109,6 @@ class AudioSourceService extends ChangeNotifier {
         name: '内置 API',
         type: AudioSourceType.builtin,
         url: '', // 内置API不需要URL
-        enabled: true,
       );
 
       // 添加到列表开头
@@ -122,7 +121,8 @@ class AudioSourceService extends ChangeNotifier {
       }
 
       // 保存设置
-      await _saveSettings();
+      await _saveSources();
+      await _saveActiveSourceId();
     }
   }
 
