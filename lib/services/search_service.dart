@@ -294,17 +294,13 @@ class SearchService extends ChangeNotifier {
   Future<void> _searchNetease(String keyword) async {
     try {
       print('🎵 [SearchService] 网易云搜索: $keyword');
-      
-      final baseUrl = UrlService().baseUrl;
-      final url = '$baseUrl/search';
 
-      final response = await http.post(
+      final baseUrl = UrlService().baseUrl;
+      final url = '$baseUrl/search?keywords=${Uri.encodeComponent(keyword)}&limit=20';
+
+      final response = await http.get(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: {
-          'keywords': keyword,
-          'limit': '20',
-        },
+        headers: {'Content-Type': 'application/json'},
       ).timeout(
         const Duration(seconds: 10),
         onTimeout: () => throw Exception('请求超时'),
