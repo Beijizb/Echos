@@ -35,7 +35,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 import '../services/url_service.dart';
 import '../services/netease_login_service.dart';
-import '../services/auto_update_service.dart';
+// import '../services/auto_update_service.dart'; // 已禁用云端更新功能
 import 'home_for_you_tab.dart';
 import 'discover_playlist_detail_page.dart';
 import 'home_page/daily_recommend_detail_page.dart';
@@ -132,8 +132,8 @@ class _HomePageState extends State<HomePage>
     // 📢 首次进入时检查公告（优先级高于更新检查）
     _checkAnnouncementOnce();
 
-    // 🔍 首次进入时检查更新
-    _checkForUpdateOnce();
+    // 🔍 首次进入时检查更新 - 已禁用云端更新功能
+    // _checkForUpdateOnce();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -399,7 +399,8 @@ class _HomePageState extends State<HomePage>
     }
   }
 
-  /// 每次进入首页时检查更新
+  /// 每次进入首页时检查更新 - 已禁用云端更新功能
+  /*
   Future<void> _checkForUpdateOnce() async {
     try {
       // 延迟2秒后检查，避免影响首页加载
@@ -463,8 +464,10 @@ class _HomePageState extends State<HomePage>
       print('❌ [HomePage] 检查更新失败: $e');
     }
   }
+  */
 
-  /// 显示更新提示对话框
+  /// 显示更新提示对话框 - 已禁用云端更新功能
+  /*
   void _showUpdateDialog(VersionInfo versionInfo) {
     if (!mounted) return;
 
@@ -652,8 +655,10 @@ class _HomePageState extends State<HomePage>
       ),
     ));
   }
+  */
 
-  /// 显示更新提示对话框（Fluent UI 版本）
+  /// 显示更新提示对话框（Fluent UI 版本） - 已禁用云端更新功能
+  /*
   void _showUpdateDialogFluent(VersionInfo versionInfo) {
     if (!mounted) return;
 
@@ -780,8 +785,10 @@ class _HomePageState extends State<HomePage>
       ),
     ));
   }
+  */
 
-  /// 显示更新进度对话框（Material Design 版本）
+  /// 显示更新进度对话框（Material Design 版本） - 已禁用云端更新功能
+  /*
   void _showUpdateProgressDialog(VersionInfo versionInfo) {
     if (!mounted) return;
 
@@ -907,8 +914,10 @@ class _HomePageState extends State<HomePage>
       ),
     );
   }
+  */
 
-  /// 显示更新进度对话框（Fluent UI 版本）
+  /// 显示更新进度对话框（Fluent UI 版本） - 已禁用云端更新功能
+  /*
   void _showUpdateProgressDialogFluent(VersionInfo versionInfo) {
     if (!mounted) return;
 
@@ -1032,6 +1041,7 @@ class _HomePageState extends State<HomePage>
       }
     }
   }
+  */
 
   /// 检查登录状态，如果未登录则跳转到登录页面
   /// 返回 true 表示已登录或登录成功，返回 false 表示未登录或取消登录

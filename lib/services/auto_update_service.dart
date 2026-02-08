@@ -15,7 +15,9 @@ import 'developer_mode_service.dart';
 import 'persistent_storage_service.dart';
 import 'url_service.dart';
 
-/// 自动更新服务
+/// 自动更新服务 - 已禁用
+///
+/// 注意：此服务已被禁用，所有方法都不会执行实际操作
 class AutoUpdateService extends ChangeNotifier {
   static final AutoUpdateService _instance = AutoUpdateService._internal();
   factory AutoUpdateService() => _instance;
@@ -28,22 +30,21 @@ class AutoUpdateService extends ChangeNotifier {
   bool _isUpdating = false;
   bool _requiresRestart = false;
   double _progress = 0.0;
-  String _statusMessage = '未开始';
+  String _statusMessage = '云端更新功能已禁用';
   String? _lastError;
   VersionInfo? _pendingVersion;
   DateTime? _lastSuccessAt;
 
-  /// 初始化自动更新服务
+  /// 初始化自动更新服务 - 已禁用
   Future<void> initialize() async {
     if (_isInitialized) {
       return;
     }
 
     try {
-      final storedValue = PersistentStorageService().getBool(_storageKey);
-      _enabled = storedValue ?? false;
+      _enabled = false; // 强制禁用
       _isInitialized = true;
-      DeveloperModeService().addLog('🔄 自动更新服务初始化，当前状态: ${_enabled ? '已开启' : '已关闭'}');
+      DeveloperModeService().addLog('🔄 自动更新服务已禁用');
     } catch (e) {
       DeveloperModeService().addLog('❌ 自动更新服务初始化失败: $e');
     }
@@ -59,126 +60,36 @@ class AutoUpdateService extends ChangeNotifier {
   VersionInfo? get pendingVersion => _pendingVersion;
   DateTime? get lastSuccessAt => _lastSuccessAt;
 
-  /// 当前平台是否支持自动更新
-  bool get isPlatformSupported => Platform.isWindows || Platform.isAndroid;
+  /// 当前平台是否支持自动更新 - 已禁用，始终返回 false
+  bool get isPlatformSupported => false;
 
-  /// 设置自动更新开关
+  /// 设置自动更新开关 - 已禁用，不执行任何操作
   Future<void> setEnabled(bool value) async {
-    if (_enabled == value) return;
-
-    _enabled = value;
-    notifyListeners();
-
-    final saved = await PersistentStorageService().setBool(_storageKey, value);
-    if (!saved) {
-      DeveloperModeService().addLog('⚠️ 自动更新状态保存失败');
-    }
-
-    DeveloperModeService().addLog(value ? '⚙️ 自动更新已开启' : '⏸️ 自动更新已关闭');
-
-    if (value && _pendingVersion != null && !_isUpdating && isPlatformSupported) {
-      // 延迟触发，确保调用方已有机会更新 UI
-      unawaited(Future.delayed(const Duration(milliseconds: 200), () {
-        startUpdate(versionInfo: _pendingVersion!, autoTriggered: true);
-      }));
-    }
+    DeveloperModeService().addLog('⚠️ 自动更新功能已禁用');
+    return;
   }
 
-  /// 监听到新版本信息
+  /// 监听到新版本信息 - 已禁用，不执行任何操作
   void onNewVersionDetected(VersionInfo versionInfo) {
-    _pendingVersion = versionInfo;
-    _lastError = null;
-    _requiresRestart = false;
-    notifyListeners();
-
-    if (_enabled && !_isUpdating && isPlatformSupported && !versionInfo.forceUpdate) {
-      startUpdate(versionInfo: versionInfo, autoTriggered: true);
-    }
+    return;
   }
 
-  /// 清除待更新版本（例如确认已是最新版本时）
+  /// 清除待更新版本（例如确认已是最新版本时） - 已禁用，不执行任何操作
   void clearPendingVersion() {
-    if (_pendingVersion == null) return;
-    _pendingVersion = null;
-    notifyListeners();
+    return;
   }
 
-  /// 手动或自动触发更新
+  /// 手动或自动触发更新 - 已禁用，不执行任何操作
   Future<void> startUpdate({VersionInfo? versionInfo, bool autoTriggered = false}) async {
-    versionInfo ??= _pendingVersion;
-
-    if (versionInfo == null) {
-      _statusMessage = '未检测到可用更新';
-      _lastError = '没有可用的版本信息';
-      notifyListeners();
-      return;
-    }
-
-    if (!isPlatformSupported) {
-      _statusMessage = '当前平台暂不支持自动更新';
-      _lastError = _statusMessage;
-      notifyListeners();
-      return;
-    }
-
-    if (_isUpdating) {
-      DeveloperModeService().addLog('⚠️ 自动更新任务已在执行中，跳过重复触发');
-      return;
-    }
-
-    final downloadUrl = _resolveDownloadUrl(versionInfo);
-    if (downloadUrl == null) {
-      final message = '后端未提供当前平台的更新包链接';
-      _statusMessage = message;
-      _lastError = message;
-      notifyListeners();
-      DeveloperModeService().addLog('❌ $message');
-      return;
-    }
-
-    _isUpdating = true;
-    _progress = 0.0;
-    _lastError = null;
-    _requiresRestart = false;
-    _statusMessage = autoTriggered ? '正在后台自动下载更新...' : '正在下载更新包...';
+    DeveloperModeService().addLog('⚠️ 自动更新功能已禁用');
+    _statusMessage = '云端更新功能已禁用';
+    _lastError = '云端更新功能已禁用';
     notifyListeners();
-
-    DeveloperModeService().addLog('⬇️ 原始下载URL: $downloadUrl');
-    DeveloperModeService().addLog('🌐 当前后端baseUrl: ${UrlService().baseUrl}');
-
-    try {
-      final normalizedUrl = _normalizeDownloadUrl(downloadUrl);
-      DeveloperModeService().addLog('🔄 归一化后URL: $normalizedUrl');
-      final downloadedFile = await _downloadToFile(normalizedUrl);
-
-      _statusMessage = '下载完成，正在安装...';
-      _progress = 1.0;
-      notifyListeners();
-
-      if (Platform.isWindows) {
-        await _installOnDesktop(downloadedFile, versionInfo);
-      } else if (Platform.isAndroid) {
-        await _installOnAndroid(downloadedFile);
-      } else {
-        // 兜底处理
-        await _openFile(downloadedFile);
-      }
-
-      _statusMessage = '更新安装完成，请重启应用生效';
-      _requiresRestart = Platform.isWindows;
-      _lastSuccessAt = DateTime.now();
-      DeveloperModeService().addLog('✅ 自动更新完成，等待用户重启应用');
-    } catch (e, stackTrace) {
-      _lastError = e.toString();
-      _statusMessage = '更新失败: $e';
-      DeveloperModeService().addLog('❌ 自动更新失败: $e');
-      DeveloperModeService().addLog(stackTrace.toString());
-    } finally {
-      _isUpdating = false;
-      notifyListeners();
-    }
+    return;
   }
 
+  // ==================== 以下所有方法已禁用 ====================
+  /*
   /// 辅助方法：根据平台解析下载地址
   String? _resolveDownloadUrl(VersionInfo versionInfo) {
     if (Platform.isWindows) {
@@ -723,6 +634,7 @@ exit
     }
     return name;
   }
+  */
 }
 
 extension on Future<void> {
