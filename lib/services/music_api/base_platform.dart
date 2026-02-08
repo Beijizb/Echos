@@ -17,6 +17,11 @@ abstract class BasePlatform {
   /// HTTP 客户端
   final MusicApiHttpClient httpClient = MusicApiHttpClient();
 
+  /// 构造函数 - 设置平台名称
+  BasePlatform() {
+    httpClient.setPlatformName(name);
+  }
+
   /// 搜索歌曲
   /// 
   /// [keyword] 搜索关键词

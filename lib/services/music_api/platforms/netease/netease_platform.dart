@@ -3,6 +3,7 @@ import '../../base_platform.dart';
 import '../../crypto/netease_crypto.dart';
 import '../../models/search_response.dart';
 import '../../models/lyric_data.dart';
+import '../../utils/api_logger.dart';
 import '../../../../models/track.dart';
 import '../../../../models/song_detail.dart';
 import '../../../../models/toplist.dart';
@@ -18,8 +19,14 @@ class NeteasePlatform extends BasePlatform {
 
   @override
   Future<SearchResponse> search(String keyword, {int limit = 20}) async {
+    final startTime = DateTime.now();
+
     try {
-      print('🔍 [Netease] 搜索: $keyword');
+      ApiLogger.logInfo(
+        platform: name,
+        message: '开始搜索',
+        data: {'keyword': keyword, 'limit': limit},
+      );
 
       final params = {
         'keywords': keyword,
@@ -42,19 +49,35 @@ class NeteasePlatform extends BasePlatform {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        
+
         if (data['code'] == 200) {
           final songs = data['result']['songs'] as List<dynamic>? ?? [];
           final tracks = songs.map((item) => _parseTrack(item)).toList();
-          
-          print('✅ [Netease] 搜索成功: ${tracks.length} 首');
+
+          final duration = DateTime.now().difference(startTime);
+          ApiLogger.logPerformance(
+            platform: name,
+            operation: 'search',
+            duration: duration,
+            metrics: {
+              'keyword': keyword,
+              'results': tracks.length,
+              'total': data['result']['songCount'] ?? 0,
+            },
+          );
+
           return SearchResponse(tracks: tracks, total: tracks.length);
         }
       }
 
       throw Exception('搜索失败: ${response.statusCode}');
-    } catch (e) {
-      print('❌ [Netease] 搜索失败: $e');
+    } catch (e, stackTrace) {
+      ApiLogger.logError(
+        platform: name,
+        operation: 'search',
+        error: e,
+        stackTrace: stackTrace,
+      );
       return SearchResponse.empty();
     }
   }
@@ -254,8 +277,14 @@ class NeteasePlatform extends BasePlatform {
 
   @override
   Future<List<Track>> getRecommendSongs({int limit = 30}) async {
+    final startTime = DateTime.now();
+
     try {
-      print('🎵 [Netease] 获取每日推荐歌曲');
+      ApiLogger.logInfo(
+        platform: name,
+        message: '获取每日推荐歌曲',
+        data: {'limit': limit},
+      );
 
       final params = {
         'limit': limit.toString(),
@@ -282,22 +311,43 @@ class NeteasePlatform extends BasePlatform {
           final songs = data['data']?['dailySongs'] as List<dynamic>? ?? [];
           final tracks = songs.map((item) => _parseTrack(item)).toList();
 
-          print('✅ [Netease] 每日推荐获取成功: ${tracks.length} 首');
+          final duration = DateTime.now().difference(startTime);
+          ApiLogger.logPerformance(
+            platform: name,
+            operation: 'getRecommendSongs',
+            duration: duration,
+            metrics: {
+              'results': tracks.length,
+              'requested': limit,
+            },
+          );
+
           return tracks;
         }
       }
 
       return [];
-    } catch (e) {
-      print('❌ [Netease] 获取每日推荐失败: $e');
+    } catch (e, stackTrace) {
+      ApiLogger.logError(
+        platform: name,
+        operation: 'getRecommendSongs',
+        error: e,
+        stackTrace: stackTrace,
+      );
       return [];
     }
   }
 
   @override
   Future<List<Map<String, dynamic>>> getRecommendPlaylists({int limit = 30}) async {
+    final startTime = DateTime.now();
+
     try {
-      print('🎵 [Netease] 获取推荐歌单');
+      ApiLogger.logInfo(
+        platform: name,
+        message: '获取推荐歌单',
+        data: {'limit': limit},
+      );
 
       final params = {
         'limit': limit.toString(),
@@ -326,22 +376,42 @@ class NeteasePlatform extends BasePlatform {
             'playCount': item['playCount'] as int? ?? 0,
           }).toList();
 
-          print('✅ [Netease] 推荐歌单获取成功: ${playlists.length} 个');
+          final duration = DateTime.now().difference(startTime);
+          ApiLogger.logPerformance(
+            platform: name,
+            operation: 'getRecommendPlaylists',
+            duration: duration,
+            metrics: {
+              'results': playlists.length,
+              'requested': limit,
+            },
+          );
+
           return playlists;
         }
       }
 
       return [];
-    } catch (e) {
-      print('❌ [Netease] 获取推荐歌单失败: $e');
+    } catch (e, stackTrace) {
+      ApiLogger.logError(
+        platform: name,
+        operation: 'getRecommendPlaylists',
+        error: e,
+        stackTrace: stackTrace,
+      );
       return [];
     }
   }
 
   @override
   Future<List<Track>> getPersonalFM() async {
+    final startTime = DateTime.now();
+
     try {
-      print('🎵 [Netease] 获取私人FM');
+      ApiLogger.logInfo(
+        platform: name,
+        message: '获取私人FM',
+      );
 
       final encrypted = NeteaseCrypto.weapi({});
       final response = await httpClient.post(
@@ -359,14 +429,28 @@ class NeteasePlatform extends BasePlatform {
           final songs = data['data'] as List<dynamic>? ?? [];
           final tracks = songs.map((item) => _parseTrack(item)).toList();
 
-          print('✅ [Netease] 私人FM获取成功: ${tracks.length} 首');
+          final duration = DateTime.now().difference(startTime);
+          ApiLogger.logPerformance(
+            platform: name,
+            operation: 'getPersonalFM',
+            duration: duration,
+            metrics: {
+              'results': tracks.length,
+            },
+          );
+
           return tracks;
         }
       }
 
       return [];
-    } catch (e) {
-      print('❌ [Netease] 获取私人FM失败: $e');
+    } catch (e, stackTrace) {
+      ApiLogger.logError(
+        platform: name,
+        operation: 'getPersonalFM',
+        error: e,
+        stackTrace: stackTrace,
+      );
       return [];
     }
   }

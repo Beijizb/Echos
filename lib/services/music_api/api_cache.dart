@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'utils/api_logger.dart';
 
 /// 缓存数据包装类
 class CachedData<T> {
@@ -37,42 +38,94 @@ class ApiCache {
 
   /// 获取搜索缓存
   T? getSearch<T>(String key) {
-    return _get(_searchCache, key);
+    final result = _get(_searchCache, key);
+    ApiLogger.logCache(
+      platform: 'Cache',
+      operation: 'getSearch',
+      key: key,
+      hit: result != null,
+    );
+    return result;
   }
 
   /// 设置搜索缓存
   void setSearch<T>(String key, T data) {
     _set(_searchCache, key, data, searchCacheTTL);
+    ApiLogger.logCache(
+      platform: 'Cache',
+      operation: 'setSearch',
+      key: key,
+      hit: null,
+    );
   }
 
   /// 获取URL缓存
   String? getUrl(String key) {
-    return _get(_urlCache, key);
+    final result = _get(_urlCache, key);
+    ApiLogger.logCache(
+      platform: 'Cache',
+      operation: 'getUrl',
+      key: key,
+      hit: result != null,
+    );
+    return result;
   }
 
   /// 设置URL缓存
   void setUrl(String key, String data) {
     _set(_urlCache, key, data, urlCacheTTL);
+    ApiLogger.logCache(
+      platform: 'Cache',
+      operation: 'setUrl',
+      key: key,
+      hit: null,
+    );
   }
 
   /// 获取歌词缓存
   String? getLyric(String key) {
-    return _get(_lyricCache, key);
+    final result = _get(_lyricCache, key);
+    ApiLogger.logCache(
+      platform: 'Cache',
+      operation: 'getLyric',
+      key: key,
+      hit: result != null,
+    );
+    return result;
   }
 
   /// 设置歌词缓存
   void setLyric(String key, String data) {
     _set(_lyricCache, key, data, lyricCacheTTL);
+    ApiLogger.logCache(
+      platform: 'Cache',
+      operation: 'setLyric',
+      key: key,
+      hit: null,
+    );
   }
 
   /// 获取榜单缓存
   T? getToplist<T>(String key) {
-    return _get(_toplistCache, key);
+    final result = _get(_toplistCache, key);
+    ApiLogger.logCache(
+      platform: 'Cache',
+      operation: 'getToplist',
+      key: key,
+      hit: result != null,
+    );
+    return result;
   }
 
   /// 设置榜单缓存
   void setToplist<T>(String key, T data) {
     _set(_toplistCache, key, data, toplistCacheTTL);
+    ApiLogger.logCache(
+      platform: 'Cache',
+      operation: 'setToplist',
+      key: key,
+      hit: null,
+    );
   }
 
   /// 通用获取方法
