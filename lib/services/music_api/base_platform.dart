@@ -63,14 +63,38 @@ abstract class BasePlatform {
   Future<List<Toplist>> getToplists();
 
   /// 获取歌单详情
-  /// 
+  ///
   /// [playlistId] 歌单ID
-  /// 
+  ///
   /// 返回歌单中的所有歌曲
   Future<List<Track>> getPlaylistTracks(String playlistId);
 
+  /// 获取每日推荐歌曲
+  ///
+  /// 返回每日推荐的歌曲列表
+  Future<List<Track>> getRecommendSongs({int limit = 30}) async {
+    print('⚠️ [$name] 该平台不支持每日推荐歌曲');
+    return [];
+  }
+
+  /// 获取推荐歌单
+  ///
+  /// 返回推荐的歌单列表
+  Future<List<Map<String, dynamic>>> getRecommendPlaylists({int limit = 30}) async {
+    print('⚠️ [$name] 该平台不支持推荐歌单');
+    return [];
+  }
+
+  /// 获取私人FM
+  ///
+  /// 返回私人FM歌曲列表
+  Future<List<Track>> getPersonalFM() async {
+    print('⚠️ [$name] 该平台不支持私人FM');
+    return [];
+  }
+
   /// 平台初始化
-  /// 
+  ///
   /// 在首次使用前调用，用于设置cookies、headers等
   Future<void> initialize() async {
     print('🎵 [$name] 平台初始化完成');

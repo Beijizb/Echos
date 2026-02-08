@@ -241,13 +241,132 @@ class NeteasePlatform extends BasePlatform {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final tracks = data['playlist']['tracks'] as List<dynamic>;
-        
+
         return tracks.map((item) => _parseTrack(item)).toList();
       }
 
       return [];
     } catch (e) {
       print('❌ [Netease] 获取歌单失败: $e');
+      return [];
+    }
+  }
+
+  @override
+  Future<List<Track>> getRecommendSongs({int limit = 30}) async {
+    try {
+      print('🎵 [Netease] 获取每日推荐歌曲');
+
+      final params = {
+        'limit': limit.toString(),
+      };
+
+      // 使用 Eapi 加密
+      final encrypted = NeteaseCrypto.eapi(
+        '/api/v1/discovery/recommend/songs',
+        params,
+      );
+
+      final response = await httpClient.post(
+        'https://music.163.com/eapi/v1/discovery/recommend/songs',
+        body: encrypted,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['code'] == 200) {
+          final songs = data['data']?['dailySongs'] as List<dynamic>? ?? [];
+          final tracks = songs.map((item) => _parseTrack(item)).toList();
+
+          print('✅ [Netease] 每日推荐获取成功: ${tracks.length} 首');
+          return tracks;
+        }
+      }
+
+      return [];
+    } catch (e) {
+      print('❌ [Netease] 获取每日推荐失败: $e');
+      return [];
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getRecommendPlaylists({int limit = 30}) async {
+    try {
+      print('🎵 [Netease] 获取推荐歌单');
+
+      final params = {
+        'limit': limit.toString(),
+        'total': 'true',
+        'n': '1000',
+      };
+
+      final encrypted = NeteaseCrypto.weapi(params);
+      final response = await httpClient.post(
+        '$apiUrl/personalized/playlist',
+        body: encrypted,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['code'] == 200) {
+          final result = data['result'] as List<dynamic>? ?? [];
+          final playlists = result.map((item) => {
+            'id': item['id'].toString(),
+            'name': item['name'] as String,
+            'picUrl': item['picUrl'] as String,
+            'playCount': item['playCount'] as int? ?? 0,
+          }).toList();
+
+          print('✅ [Netease] 推荐歌单获取成功: ${playlists.length} 个');
+          return playlists;
+        }
+      }
+
+      return [];
+    } catch (e) {
+      print('❌ [Netease] 获取推荐歌单失败: $e');
+      return [];
+    }
+  }
+
+  @override
+  Future<List<Track>> getPersonalFM() async {
+    try {
+      print('🎵 [Netease] 获取私人FM');
+
+      final encrypted = NeteaseCrypto.weapi({});
+      final response = await httpClient.post(
+        '$apiUrl/v1/radio/get',
+        body: encrypted,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['code'] == 200) {
+          final songs = data['data'] as List<dynamic>? ?? [];
+          final tracks = songs.map((item) => _parseTrack(item)).toList();
+
+          print('✅ [Netease] 私人FM获取成功: ${tracks.length} 首');
+          return tracks;
+        }
+      }
+
+      return [];
+    } catch (e) {
+      print('❌ [Netease] 获取私人FM失败: $e');
       return [];
     }
   }
