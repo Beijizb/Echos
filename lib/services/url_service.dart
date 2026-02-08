@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// 后端源类型
 enum BackendSourceType {
   official, // 官方源
+  local,    // 本地源
   custom,   // 自定义源
 }
 
@@ -15,6 +16,9 @@ class UrlService extends ChangeNotifier {
 
   /// 官方源地址
   static const String officialBaseUrl = 'https://server.cyrene.cyou:4449';
+
+  /// 本地源地址
+  static const String localBaseUrl = 'http://localhost:3000';
 
   /// 当前源类型
   BackendSourceType _sourceType = BackendSourceType.official;
@@ -86,6 +90,8 @@ class UrlService extends ChangeNotifier {
     switch (_sourceType) {
       case BackendSourceType.official:
         return officialBaseUrl;
+      case BackendSourceType.local:
+        return localBaseUrl;
       case BackendSourceType.custom:
         return _customBaseUrl.isNotEmpty ? _customBaseUrl : officialBaseUrl;
     }
@@ -123,6 +129,11 @@ class UrlService extends ChangeNotifier {
   /// 切换到官方源
   void useOfficialSource() {
     setSourceType(BackendSourceType.official);
+  }
+
+  /// 切换到本地源
+  void useLocalSource() {
+    setSourceType(BackendSourceType.local);
   }
 
   /// 切换到自定义源
@@ -224,6 +235,8 @@ class UrlService extends ChangeNotifier {
     switch (_sourceType) {
       case BackendSourceType.official:
         return '官方源（默认后端服务）';
+      case BackendSourceType.local:
+        return '本地源（http://localhost:3000）';
       case BackendSourceType.custom:
         return '自定义源 (${_customBaseUrl.isNotEmpty ? _customBaseUrl : '未设置'})';
     }

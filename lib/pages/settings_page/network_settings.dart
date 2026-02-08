@@ -321,7 +321,31 @@ class _NetworkSettingsState extends State<NetworkSettings> {
                     messenger.showSnackBar(
                       const SnackBar(content: Text('已切换到官方源')),
                     );
-                  } 
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+              fluent_ui.RadioButton(
+                content: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('本地源'),
+                    Text(
+                      'http://localhost:3000',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+                checked: UrlService().sourceType == BackendSourceType.local,
+                onChanged: (v) {
+                  UrlService().useLocalSource();
+                  Navigator.pop(context);
+                  final messenger = ScaffoldMessenger.maybeOf(context);
+                  if (messenger != null) {
+                    messenger.showSnackBar(
+                      const SnackBar(content: Text('已切换到本地源')),
+                    );
+                  }
                 },
               ),
               const SizedBox(height: 8),
@@ -382,10 +406,26 @@ class _NetworkSettingsState extends State<NetworkSettings> {
               },
             ),
             RadioListTile<BackendSourceType>(
+              title: const Text('本地源'),
+              subtitle: Text(
+                'http://localhost:3000',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              value: BackendSourceType.local,
+              groupValue: UrlService().sourceType,
+              onChanged: (value) {
+                UrlService().useLocalSource();
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('已切换到本地源')),
+                );
+              },
+            ),
+            RadioListTile<BackendSourceType>(
               title: const Text('自定义源'),
               subtitle: Text(
-                UrlService().customBaseUrl.isNotEmpty 
-                    ? UrlService().customBaseUrl 
+                UrlService().customBaseUrl.isNotEmpty
+                    ? UrlService().customBaseUrl
                     : '点击设置自定义地址',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
@@ -521,6 +561,31 @@ class _NetworkSettingsState extends State<NetworkSettings> {
                     child: Icon(CupertinoIcons.checkmark, size: 18),
                   ),
                 const Text('官方源'),
+              ],
+            ),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              UrlService().useLocalSource();
+              Navigator.pop(context);
+            },
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (UrlService().sourceType == BackendSourceType.local)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child: Icon(CupertinoIcons.checkmark, size: 18),
+                  ),
+                const Text('本地源'),
+                const SizedBox(width: 8),
+                const Text(
+                  'localhost:3000',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: CupertinoColors.systemGrey,
+                  ),
+                ),
               ],
             ),
           ),
