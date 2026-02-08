@@ -313,6 +313,128 @@ class QQPlatform extends BasePlatform {
     }
   }
 
+  @override
+  Future<List<Track>> getRecommendSongs({int limit = 30}) async {
+    try {
+      print('🎵 [QQ] 获取每日推荐歌曲');
+
+      // 第一步：获取推荐Feed
+      final feedData = {
+        'comm': {
+          'cv': 4747474,
+          'ct': 24,
+          'format': 'json',
+          'uin': 0,
+        },
+        'req_1': {
+          'module': 'music.recommend.RecommendFeed',
+          'method': 'get_recommend_feed',
+          'param': {
+            'direction': 0,
+            'page': 1,
+            'v_cache': [],
+            'v_uniq': [],
+            's_num': 0,
+          },
+        },
+      };
+
+      final feedResponse = await httpClient.post(
+        apiUrl,
+        body: json.encode(feedData),
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15',
+        },
+      );
+
+      if (feedResponse.statusCode == 200) {
+        final feedResult = json.decode(feedResponse.body);
+        if (feedResult['code'] == 0 && feedResult['req_1']?['code'] == 0) {
+          // 查找"每日30首"卡片
+          final vCard = feedResult['req_1']['data']['v_shelf']?[0]?['v_niche']?[0]?['v_card'] as List<dynamic>? ?? [];
+
+          String? dailyPlaylistId;
+          for (final card in vCard) {
+            if (card['title'] == '每日30首') {
+              dailyPlaylistId = card['id'].toString();
+              break;
+            }
+          }
+
+          if (dailyPlaylistId != null) {
+            // 第二步：获取歌单详情
+            final tracks = await getPlaylistTracks(dailyPlaylistId);
+            print('✅ [QQ] 每日推荐获取成功: ${tracks.length} 首');
+            return tracks.take(limit).toList();
+          }
+        }
+      }
+
+      return [];
+    } catch (e) {
+      print('❌ [QQ] 获取每日推荐失败: $e');
+      return [];
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getRecommendPlaylists({int limit = 30}) async {
+    try {
+      print('🎵 [QQ] 获取推荐歌单');
+
+      final requestData = {
+        'comm': {
+          'cv': 4747474,
+          'ct': 24,
+          'format': 'json',
+          'uin': 0,
+        },
+        'req_1': {
+          'module': 'music.playlist.PlaylistSquare',
+          'method': 'GetRecommendFeed',
+          'param': {
+            'From': 0,
+            'Size': limit,
+          },
+        },
+      };
+
+      final response = await httpClient.post(
+        apiUrl,
+        body: json.encode(requestData),
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['code'] == 0 && data['req_1']?['code'] == 0) {
+          final list = data['req_1']['data']['List'] as List<dynamic>? ?? [];
+          final playlists = list.map((item) {
+            final basic = item['Playlist']?['basic'];
+            return {
+              'id': basic?['tid'].toString() ?? '',
+              'name': basic?['title'] as String? ?? '',
+              'picUrl': basic?['cover']?['default_url'] as String? ?? '',
+              'playCount': basic?['play_cnt'] as int? ?? 0,
+            };
+          }).toList();
+
+          print('✅ [QQ] 推荐歌单获取成功: ${playlists.length} 个');
+          return playlists;
+        }
+      }
+
+      return [];
+    } catch (e) {
+      print('❌ [QQ] 获取推荐歌单失败: $e');
+      return [];
+    }
+  }
+
   // 工具方法
 
   Track _parseTrack(Map<String, dynamic> item) {

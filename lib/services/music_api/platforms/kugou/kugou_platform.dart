@@ -205,6 +205,60 @@ class KugouPlatform extends BasePlatform {
     }
   }
 
+  @override
+  Future<List<Track>> getRecommendSongs({int limit = 30}) async {
+    try {
+      print('🎵 [Kugou] 获取每日推荐歌曲');
+
+      final url = 'https://mobilecdnbj.kugou.com/api/v3/recommend/song'
+          '?pagesize=$limit&version=9108&plat=0';
+
+      final response = await httpClient.get(
+        url,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 1) {
+          final songs = data['data']?['info'] as List<dynamic>? ?? [];
+          final tracks = songs.map((item) => _parseRecommendTrack(item)).toList();
+
+          print('✅ [Kugou] 每日推荐获取成功: ${tracks.length} 首');
+          return tracks;
+        }
+      }
+
+      return [];
+    } catch (e) {
+      print('❌ [Kugou] 获取每日推荐失败: $e');
+      return [];
+    }
+  }
+
+  Track _parseRecommendTrack(Map<String, dynamic> item) {
+    final artistName = item['singername'] ?? '';
+    final albumName = item['album_name'] ?? '';
+
+    return Track(
+      id: {
+        'hash': item['hash'],
+        'albumId': item['album_id'] ?? '',
+        'name': item['songname'],
+        'artists': artistName,
+        'album': albumName,
+        'pic': '',
+      },
+      name: item['songname'] ?? '',
+      artists: artistName,
+      album: albumName,
+      picUrl: '',
+      source: MusicSource.kugou,
+    );
+  }
+
   // 工具方法
 
   Track _parseTrack(Map<String, dynamic> item) {
