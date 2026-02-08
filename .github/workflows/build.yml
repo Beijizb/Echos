@@ -263,7 +263,7 @@ jobs:
           name: ios-unsigned
           path: echo-ios-unsigned.ipa
 
-  # 创建 Release
+  # 创建 Release（自动触发）
   create-release:
     name: Create Release
     needs: [build-android, build-windows, build-linux, build-macos, build-ios]
@@ -317,6 +317,27 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
+          body: |
+            ## 📦 下载说明
+
+            ### Android
+            - **app-arm64-v8a-release.apk** - 直接下载安装（推荐）
+
+            ### Windows
+            - **echo-windows-x64.zip** - 解压后运行 `cyrene_music.exe`
+
+            ### Linux
+            - **cyrene_music-linux-x64.tar.gz** - 解压后运行 `bundle/cyrene_music`
+
+            ### macOS
+            - **cyrene_music-macos.dmg** - 双击安装
+
+            ### iOS
+            - **echo-ios-unsigned.ipa** - 需要自行签名后安装
+
+            ---
+
+            💡 **提示**：从 Release 页面下载的文件是原始格式，不会被打包成 ZIP
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
