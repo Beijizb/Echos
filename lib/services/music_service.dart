@@ -1063,7 +1063,7 @@ class MusicService extends ChangeNotifier {
       }
 
       // 从平台API获取歌曲详情
-      final result = await platform.getSongDetail(songId.toString(), AudioQuality.standard);
+      final result = await platform.getSongDetail(songId, quality);
       
       if (result == null) {
         print('❌ [MusicService] 获取歌曲详情失败');
