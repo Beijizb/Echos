@@ -83,6 +83,9 @@ class AudioSourceService extends ChangeNotifier {
 
     await _loadSettings();
 
+    // 确保有内置音源可用
+    await _ensureBuiltinSource();
+
     // 如果当前有活动音源且是洛雪音源，初始化运行时
     if (activeSource?.type == AudioSourceType.lxmusic) {
       initializeLxRuntime();
@@ -90,6 +93,37 @@ class AudioSourceService extends ChangeNotifier {
 
     _isInitialized = true;
     print('✅ [AudioSourceService] 初始化完成');
+  }
+
+  /// 确保内置音源存在
+  Future<void> _ensureBuiltinSource() async {
+    // 检查是否已有内置音源
+    final hasBuiltin = _sources.any((s) => s.type == AudioSourceType.builtin);
+
+    if (!hasBuiltin) {
+      print('📦 [AudioSourceService] 添加默认内置音源');
+
+      // 创建默认内置音源
+      final builtinSource = AudioSourceConfig(
+        id: 'builtin_default',
+        name: '内置 API',
+        type: AudioSourceType.builtin,
+        url: '', // 内置API不需要URL
+        enabled: true,
+      );
+
+      // 添加到列表开头
+      _sources.insert(0, builtinSource);
+
+      // 如果没有活动音源，设置内置音源为活动音源
+      if (_activeSourceId.isEmpty || activeSource == null) {
+        _activeSourceId = builtinSource.id;
+        print('✅ [AudioSourceService] 内置音源已设置为默认音源');
+      }
+
+      // 保存设置
+      await _saveSettings();
+    }
   }
 
   /// 初始化洛雪运行时环境
