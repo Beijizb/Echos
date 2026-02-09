@@ -25,15 +25,20 @@ class DeveloperPage extends StatefulWidget {
 class _DeveloperPageState extends State<DeveloperPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final ScrollController _logScrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
   int _fluentTabIndex = 0;
   int _fluentAdminTabIndex = 0;
   int _cupertinoTabIndex = 0; // iOS 标签页索引
+
+  // 日志过滤
+  Set<LogLevel> _selectedLogLevels = LogLevel.values.toSet();
+  String _searchKeyword = '';
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    
+
     // 监听日志更新，自动滚动到底部
     DeveloperModeService().addListener(_scrollToBottom);
   }
@@ -42,6 +47,7 @@ class _DeveloperPageState extends State<DeveloperPage> with SingleTickerProvider
   void dispose() {
     _tabController.dispose();
     _logScrollController.dispose();
+    _searchController.dispose();
     DeveloperModeService().removeListener(_scrollToBottom);
     super.dispose();
   }
@@ -138,17 +144,74 @@ class _DeveloperPageState extends State<DeveloperPage> with SingleTickerProvider
     return AnimatedBuilder(
       animation: DeveloperModeService(),
       builder: (context, child) {
-        final logs = DeveloperModeService().logs;
-        
+        final allLogs = DeveloperModeService().logEntries;
+
+        // 过滤日志
+        var filteredLogs = allLogs.where((log) => _selectedLogLevels.contains(log.level)).toList();
+
+        // 搜索过滤
+        if (_searchKeyword.isNotEmpty) {
+          filteredLogs = filteredLogs.where((log) =>
+            log.message.toLowerCase().contains(_searchKeyword.toLowerCase()) ||
+            (log.data?.toString().toLowerCase().contains(_searchKeyword.toLowerCase()) ?? false)
+          ).toList();
+        }
+
         return Column(
           children: [
+            // 搜索栏
+            Container(
+              padding: const EdgeInsets.all(8),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: '搜索日志...',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _searchKeyword.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            setState(() {
+                              _searchController.clear();
+                              _searchKeyword = '';
+                            });
+                          },
+                        )
+                      : null,
+                  border: const OutlineInputBorder(),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _searchKeyword = value;
+                  });
+                },
+              ),
+            ),
+
+            // 过滤器
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              height: 50,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  _buildLogLevelChip(LogLevel.debug, '🔍 调试', filteredLogs),
+                  _buildLogLevelChip(LogLevel.info, 'ℹ️ 信息', filteredLogs),
+                  _buildLogLevelChip(LogLevel.warning, '⚠️ 警告', filteredLogs),
+                  _buildLogLevelChip(LogLevel.error, '❌ 错误', filteredLogs),
+                  _buildLogLevelChip(LogLevel.api, '🌐 API', filteredLogs),
+                ],
+              ),
+            ),
+
             // 工具栏
             Container(
               padding: const EdgeInsets.all(8),
               child: Row(
                 children: [
                   Text(
-                    '共 ${logs.length} 条日志',
+                    '共 ${filteredLogs.length}/${allLogs.length} 条日志',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const Spacer(),
@@ -156,7 +219,8 @@ class _DeveloperPageState extends State<DeveloperPage> with SingleTickerProvider
                     icon: const Icon(Icons.copy),
                     tooltip: '复制全部',
                     onPressed: () {
-                      Clipboard.setData(ClipboardData(text: logs.join('\n')));
+                      final text = filteredLogs.map((e) => e.toString()).join('\n');
+                      Clipboard.setData(ClipboardData(text: text));
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('已复制到剪贴板')),
                       );
@@ -173,30 +237,136 @@ class _DeveloperPageState extends State<DeveloperPage> with SingleTickerProvider
               ),
             ),
             const Divider(height: 1),
-            
+
             // 日志列表
             Expanded(
-              child: logs.isEmpty
-                  ? const Center(child: Text('暂无日志'))
+              child: filteredLogs.isEmpty
+                  ? Center(
+                      child: Text(
+                        _searchKeyword.isNotEmpty ? '没有匹配的日志' : '暂无日志',
+                      ),
+                    )
                   : ListView.builder(
                       controller: _logScrollController,
                       padding: const EdgeInsets.all(8),
-                      itemCount: logs.length,
+                      itemCount: filteredLogs.length,
                       itemBuilder: (context, index) {
-                        final log = logs[index];
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: SelectableText(
-                            log,
-                            style: const TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 12,
-                            ),
-                          ),
-                        );
+                        final log = filteredLogs[index];
+                        return _buildLogItem(log);
                       },
                     ),
             ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 构建日志级别筛选芯片
+  Widget _buildLogLevelChip(LogLevel level, String label, List<LogEntry> filteredLogs) {
+    final isSelected = _selectedLogLevels.contains(level);
+    final count = filteredLogs.where((log) => log.level == level).length;
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text('$label ($count)'),
+        selected: isSelected,
+        onSelected: (selected) {
+          setState(() {
+            if (selected) {
+              _selectedLogLevels.add(level);
+            } else {
+              _selectedLogLevels.remove(level);
+            }
+          });
+        },
+      ),
+    );
+  }
+
+  /// 构建单个日志项
+  Widget _buildLogItem(LogEntry log) {
+    Color levelColor;
+    switch (log.level) {
+      case LogLevel.debug:
+        levelColor = Colors.grey;
+        break;
+      case LogLevel.info:
+        levelColor = Colors.blue;
+        break;
+      case LogLevel.warning:
+        levelColor = Colors.orange;
+        break;
+      case LogLevel.error:
+        levelColor = Colors.red;
+        break;
+      case LogLevel.api:
+        levelColor = Colors.green;
+        break;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: levelColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: levelColor.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                log.levelIcon,
+                style: const TextStyle(fontSize: 16),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                log.formattedTime,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 11,
+                  color: levelColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: SelectableText(
+                  log.message,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (log.data != null && log.data!.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: SelectableText(
+                log.data.toString(),
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 10,
+                  color: Colors.grey[700],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
           ],
         );
       },
@@ -1387,6 +1557,40 @@ class _DeveloperPageState extends State<DeveloperPage> with SingleTickerProvider
             ),
           ),
         ),
+        const SizedBox(height: 8),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.api),
+            title: const Text('API 日志'),
+            subtitle: const Text('记录所有 API 请求和响应到日志'),
+            trailing: Switch.adaptive(
+              value: DeveloperModeService().enableApiLogging,
+              onChanged: (value) {
+                setState(() {
+                  DeveloperModeService().toggleApiLogging(value);
+                });
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.bug_report),
+            title: const Text('详细日志'),
+            subtitle: const Text('记录详细的调试信息（会产生大量日志）'),
+            trailing: Switch.adaptive(
+              value: DeveloperModeService().enableVerboseLogging,
+              onChanged: (value) {
+                setState(() {
+                  DeveloperModeService().toggleVerboseLogging(value);
+                });
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        const Divider(),
         const SizedBox(height: 8),
         FilledButton.icon(
           onPressed: () async {

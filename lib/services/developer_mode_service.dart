@@ -1,6 +1,75 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/toast_utils.dart';
+import 'dart:developer' as developer;
+
+/// 日志级别
+enum LogLevel {
+  debug,   // 调试信息
+  info,    // 一般信息
+  warning, // 警告
+  error,   // 错误
+  api,     // API请求/响应
+}
+
+/// 日志条目
+class LogEntry {
+  final DateTime timestamp;
+  final LogLevel level;
+  final String message;
+  final Map<String, dynamic>? data;
+
+  LogEntry({
+    required this.timestamp,
+    required this.level,
+    required this.message,
+    this.data,
+  });
+
+  String get formattedTime => '${timestamp.hour.toString().padLeft(2, '0')}:'
+      '${timestamp.minute.toString().padLeft(2, '0')}:'
+      '${timestamp.second.toString().padLeft(2, '0')}';
+
+  String get levelIcon {
+    switch (level) {
+      case LogLevel.debug:
+        return '🔍';
+      case LogLevel.info:
+        return 'ℹ️';
+      case LogLevel.warning:
+        return '⚠️';
+      case LogLevel.error:
+        return '❌';
+      case LogLevel.api:
+        return '🌐';
+    }
+  }
+
+  String get levelName {
+    switch (level) {
+      case LogLevel.debug:
+        return 'DEBUG';
+      case LogLevel.info:
+        return 'INFO';
+      case LogLevel.warning:
+        return 'WARN';
+      case LogLevel.error:
+        return 'ERROR';
+      case LogLevel.api:
+        return 'API';
+    }
+  }
+
+  @override
+  String toString() {
+    final buffer = StringBuffer();
+    buffer.write('[$formattedTime] $levelIcon $levelName: $message');
+    if (data != null && data!.isNotEmpty) {
+      buffer.write('\n  数据: ${data.toString()}');
+    }
+    return buffer.toString();
+  }
+}
 
 /// 开发者模式服务
 class DeveloperModeService extends ChangeNotifier {
@@ -17,6 +86,12 @@ class DeveloperModeService extends ChangeNotifier {
 
   bool _showPerformanceOverlay = false;
   bool get showPerformanceOverlay => _showPerformanceOverlay;
+
+  bool _enableApiLogging = true;
+  bool get enableApiLogging => _enableApiLogging;
+
+  bool _enableVerboseLogging = false;
+  bool get enableVerboseLogging => _enableVerboseLogging;
 
   int _settingsClickCount = 0;
   DateTime? _lastClickTime;
@@ -36,8 +111,12 @@ class DeveloperModeService extends ChangeNotifier {
   Future<void> ensureInitialized() => initialize();
 
   /// 记录日志
+  final List<LogEntry> _logEntries = [];
+  List<LogEntry> get logEntries => List.unmodifiable(_logEntries);
+
+  // 保持向后兼容
   final List<String> _logs = [];
-  List<String> get logs => List.unmodifiable(_logs);
+  List<String> get logs => _logEntries.map((e) => e.toString()).toList();
 
   /// 处理设置按钮点击
   void onSettingsClicked() {
@@ -113,29 +192,123 @@ class DeveloperModeService extends ChangeNotifier {
   Future<void> togglePerformanceOverlay(bool value) async {
     _showPerformanceOverlay = value;
     await _saveDeveloperMode();
-    addLog(value ? '📈 已启用性能叠加层' : '📈 已禁用性能叠加层');
+    addLog('📈 已${value ? '启用' : '禁用'}性能叠加层');
     notifyListeners();
+  }
+
+  /// 切换API日志开关
+  Future<void> toggleApiLogging(bool value) async {
+    _enableApiLogging = value;
+    await _saveDeveloperMode();
+    addLog('🌐 已${value ? '启用' : '禁用'}API日志');
+    notifyListeners();
+  }
+
+  /// 切换详细日志开关
+  Future<void> toggleVerboseLogging(bool value) async {
+    _enableVerboseLogging = value;
+    await _saveDeveloperMode();
+    addLog('📝 已${value ? '启用' : '禁用'}详细日志');
+    notifyListeners();
+  }
+
+  /// 添加日志（新版本，支持日志级别）
+  void addLogEntry(LogLevel level, String message, {Map<String, dynamic>? data}) {
+    final entry = LogEntry(
+      timestamp: DateTime.now(),
+      level: level,
+      message: message,
+      data: data,
+    );
+
+    _logEntries.add(entry);
+
+    // 限制日志数量，最多保留2000条
+    if (_logEntries.length > 2000) {
+      _logEntries.removeAt(0);
+    }
+
+    // 在控制台输出
+    if (_enableVerboseLogging || level == LogLevel.error || level == LogLevel.warning) {
+      developer.log(
+        message,
+        name: 'DeveloperMode',
+        level: _getLogLevelValue(level),
+        time: entry.timestamp,
+      );
+    }
+
+    notifyListeners();
+  }
+
+  int _getLogLevelValue(LogLevel level) {
+    switch (level) {
+      case LogLevel.debug:
+        return 500;
+      case LogLevel.info:
+        return 800;
+      case LogLevel.warning:
+        return 900;
+      case LogLevel.error:
+        return 1000;
+      case LogLevel.api:
+        return 700;
+    }
   }
 
   /// 添加日志
   void addLog(String message) {
-    final timestamp = DateTime.now().toString().substring(11, 19);
-    final logEntry = '[$timestamp] $message';
-    _logs.add(logEntry);
-    
-    // 限制日志数量，最多保留1000条
-    if (_logs.length > 1000) {
-      _logs.removeAt(0);
+    addLogEntry(LogLevel.info, message);
+  }
+
+  /// 添加调试日志
+  void addDebugLog(String message, {Map<String, dynamic>? data}) {
+    if (_enableVerboseLogging) {
+      addLogEntry(LogLevel.debug, message, data: data);
     }
-    
-    notifyListeners();
+  }
+
+  /// 添加警告日志
+  void addWarningLog(String message, {Map<String, dynamic>? data}) {
+    addLogEntry(LogLevel.warning, message, data: data);
+  }
+
+  /// 添加错误日志
+  void addErrorLog(String message, {Map<String, dynamic>? data}) {
+    addLogEntry(LogLevel.error, message, data: data);
+  }
+
+  /// 添加API日志
+  void addApiLog(String message, {Map<String, dynamic>? data}) {
+    if (_enableApiLogging) {
+      addLogEntry(LogLevel.api, message, data: data);
+    }
   }
 
   /// 清除所有日志
   void clearLogs() {
-    _logs.clear();
+    _logEntries.clear();
     addLog('🗑️ 日志已清除');
     notifyListeners();
+  }
+
+  /// 导出日志为文本
+  String exportLogs() {
+    return _logEntries.map((e) => e.toString()).join('\n');
+  }
+
+  /// 按级别过滤日志
+  List<LogEntry> getLogsByLevel(LogLevel level) {
+    return _logEntries.where((e) => e.level == level).toList();
+  }
+
+  /// 搜索日志
+  List<LogEntry> searchLogs(String keyword) {
+    final lowerKeyword = keyword.toLowerCase();
+    return _logEntries.where((e) =>
+      e.message.toLowerCase().contains(lowerKeyword) ||
+      (e.data?.toString().toLowerCase().contains(lowerKeyword) ?? false)
+    ).toList();
   }
 
   /// 加载开发者模式状态
@@ -145,12 +318,15 @@ class DeveloperModeService extends ChangeNotifier {
       _isDeveloperMode = prefs.getBool('developer_mode') ?? false;
       _isSearchResultMergeEnabled = prefs.getBool('search_result_merge_enabled') ?? true;
       _showPerformanceOverlay = prefs.getBool('show_performance_overlay') ?? false;
+      _enableApiLogging = prefs.getBool('enable_api_logging') ?? true;
+      _enableVerboseLogging = prefs.getBool('enable_verbose_logging') ?? false;
       _isInitialized = true;
       if (_isDeveloperMode) {
         print('🔧 [DeveloperMode] 从本地加载: 已启用');
         addLog('🔄 开发者模式状态已恢复');
       }
       print('🔧 [DeveloperMode] 搜索结果合并设置加载: $_isSearchResultMergeEnabled');
+      print('🔧 [DeveloperMode] API日志: $_enableApiLogging, 详细日志: $_enableVerboseLogging');
       notifyListeners();
     } catch (e) {
       print('❌ [DeveloperMode] 加载失败: $e');
@@ -166,7 +342,9 @@ class DeveloperModeService extends ChangeNotifier {
       await prefs.setBool('developer_mode', _isDeveloperMode);
       await prefs.setBool('search_result_merge_enabled', _isSearchResultMergeEnabled);
       await prefs.setBool('show_performance_overlay', _showPerformanceOverlay);
-      print('💾 [DeveloperMode] 状态已保存: 开发者模式=$_isDeveloperMode, 搜索合并=$_isSearchResultMergeEnabled');
+      await prefs.setBool('enable_api_logging', _enableApiLogging);
+      await prefs.setBool('enable_verbose_logging', _enableVerboseLogging);
+      print('💾 [DeveloperMode] 状态已保存: 开发者模式=$_isDeveloperMode, 搜索合并=$_isSearchResultMergeEnabled, API日志=$_enableApiLogging');
     } catch (e) {
       print('❌ [DeveloperMode] 保存失败: $e');
     }

@@ -42,6 +42,7 @@ import 'package:cyrene_music/pages/settings_page/audio_source_settings.dart';
 import 'package:cyrene_music/pages/mobile_setup_page.dart';
 import 'package:cyrene_music/pages/mobile_app_gate.dart';
 import 'package:cyrene_music/pages/desktop_app_gate.dart';
+import 'package:cyrene_music/services/music_api/utils/api_logger.dart';
 
 // 条件导入 flutter_displaymode（仅 Android）
 import 'package:flutter_displaymode/flutter_displaymode.dart' if (dart.library.html) '';
@@ -123,6 +124,10 @@ Future<void> main() async {
       await DeveloperModeService().initialize();
     });
     log('✅ 开发者模式服务已初始化');
+
+    // 启用详细的API日志（用于调试搜索问题）
+    ApiLogger.setDetailedLogsEnabled(true);
+    log('🔍 API详细日志已启用');
   
     await timed('PersistentStorageService.getBackupStats', () {
       final storageStats = PersistentStorageService().getBackupStats();

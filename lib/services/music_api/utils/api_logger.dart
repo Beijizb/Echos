@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../developer_mode_service.dart';
 
 /// API 日志工具类
 /// 提供详细的请求和响应日志
@@ -9,6 +10,18 @@ class ApiLogger {
   /// 设置是否启用详细日志
   static void setDetailedLogsEnabled(bool enabled) {
     _enableDetailedLogs = enabled;
+  }
+
+  /// 记录到开发者模式日志
+  static void _logToDeveloperMode(String message, {Map<String, dynamic>? data}) {
+    try {
+      final devService = DeveloperModeService();
+      if (devService.isInitialized && devService.enableApiLogging) {
+        devService.addApiLog(message, data: data);
+      }
+    } catch (e) {
+      // 忽略错误，避免影响主流程
+    }
   }
 
   /// 记录请求开始
@@ -28,6 +41,17 @@ class ApiLogger {
     print('$_tag ⏰ Time: $timestamp');
     print('$_tag 🔗 Method: $method');
     print('$_tag 🌐 URL: $url');
+
+    // 记录到开发者模式
+    _logToDeveloperMode(
+      '[$platform] 📤 $method $url',
+      data: {
+        'platform': platform,
+        'method': method,
+        'url': url,
+        'timestamp': timestamp,
+      },
+    );
 
     if (headers != null && headers.isNotEmpty) {
       print('$_tag 📋 Headers:');
@@ -73,6 +97,19 @@ class ApiLogger {
     print('$_tag ✅ Status: $statusCode');
     print('$_tag ⚡ Duration: ${duration.inMilliseconds}ms');
 
+    // 记录到开发者模式
+    final isSuccess = statusCode >= 200 && statusCode < 300;
+    _logToDeveloperMode(
+      '[$platform] ${isSuccess ? '✅' : '❌'} $statusCode (${duration.inMilliseconds}ms)',
+      data: {
+        'platform': platform,
+        'url': url,
+        'statusCode': statusCode,
+        'duration_ms': duration.inMilliseconds,
+        'body_length': body.length,
+      },
+    );
+
     if (body.isNotEmpty) {
       print('$_tag 📦 Body:');
       if (body.length > 1000) {
@@ -102,6 +139,24 @@ class ApiLogger {
       print('$_tag 🌐 URL: $url');
     }
     print('$_tag 💥 Error: $error');
+
+    // 记录到开发者模式（错误级别）
+    try {
+      final devService = DeveloperModeService();
+      if (devService.isInitialized) {
+        devService.addErrorLog(
+          '[$platform] $operation 失败: $error',
+          data: {
+            'platform': platform,
+            'operation': operation,
+            'error': error.toString(),
+            'url': url,
+          },
+        );
+      }
+    } catch (e) {
+      // 忽略错误
+    }
 
     if (_enableDetailedLogs && stackTrace != null) {
       print('$_tag 📚 Stack Trace:');

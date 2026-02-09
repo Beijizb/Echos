@@ -228,8 +228,9 @@ class SearchService extends ChangeNotifier {
       _updatePlatformResults(platformName, response.tracks);
       
       print('✅ [SearchService] $platformName 搜索完成: ${response.tracks.length} 首');
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('❌ [SearchService] $platformName 搜索失败: $e');
+      print('📚 [SearchService] 堆栈跟踪: $stackTrace');
       _updatePlatformResults(platformName, [], error: e.toString());
     }
   }
